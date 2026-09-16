@@ -17,17 +17,27 @@ namespace TerminalHost.ViewModels;
 /// a short description of the current activity, and a context-token usage bar.
 ///
 /// Intentionally simple compared to Spark Canvas: no rendering, no WebView2,
-/// no force simulation — just a tree bound directly to ISessionActivityService.
+/// no force simulation — just a tree bound to <see cref="ISessionLifecycleCoordinator"/>.
 /// </summary>
 public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposable
 {
-    private readonly ISessionActivityService? _sessionActivityService;
+    private readonly ISessionLifecycleCoordinator? _coord;
     private readonly IDispatcherService _dispatcherService;
-    private readonly IAppTimer? _refreshTimer;
+
+    // Terminal-title state changes (spinner ⇄ idle icon) are stamped onto session state
+    // without firing SessionsChanged — pulsing on every spinner frame would spam consumers.
+    // The main session's Working/idle state is derived at read time from that signal
+    // (SessionActivityState.DeriveParentDisplay), and the inactivity sweep only ticks every
+    // 30s, so this short tick re-derives to surface the working↔idle transition (and the
+    // eventual TimedOut aging) within a couple of seconds. Cheap: Refresh updates rows in
+    // place and ObservableProperty setters only raise on change, so a no-change tick is
+    // effectively a no-op.
+    private readonly IAppTimer? _decayTimer;
+    private static readonly TimeSpan DecayTickInterval = TimeSpan.FromSeconds(2);
 
     public override string PanelId => "sessionsTree";
     public override string PanelTitle => "Sessions";
-    public override string PanelIcon => "\U0001F9E0"; // 🧠
+    public override string PanelIcon => "⚡"; // ⚡
     public override PanelSizePreset SizePreset => PanelSizePreset.Medium;
 
     public override IEnumerable<PanelHeaderCommand>? HeaderCommands =>
@@ -61,12 +71,15 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
 
     public bool IsEmpty => Sessions.Count == 0;
 
+    // Event-driven refresh (SessionsChanged) covers state changes that fire an event; the
+    // short decay timer covers the one transition that doesn't — a session going idle when
+    // its terminal title stops animating (see _decayTimer).
     public SessionsTreePanelViewModel(
-        ISessionActivityService? sessionActivityService,
+        ISessionLifecycleCoordinator? sessionCoordinator,
         IDispatcherService dispatcherService,
         ITimerService timerService)
     {
-        _sessionActivityService = sessionActivityService;
+        _coord = sessionCoordinator;
         _dispatcherService = dispatcherService;
 
         DisplayState = PanelDisplayState.Panel;
@@ -74,26 +87,16 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
         Width = 420;
         Height = 600;
 
-        if (_sessionActivityService != null)
-        {
-            _sessionActivityService.ActivityEventProcessed += OnActivityEvent;
-            _sessionActivityService.LifecycleChanged += OnLifecycleChanged;
-        }
+        if (_coord != null)
+            _coord.SessionsChanged += OnSessionsChanged;
 
-        // Periodic refresh keeps elapsed/activity strings live even while no events
-        // arrive (e.g., a tool is still running but produces no hook traffic).
-        _refreshTimer = timerService.CreateTimer(TimeSpan.FromSeconds(2), () => _dispatcherService.BeginInvoke(Refresh));
-        _refreshTimer.Start();
+        _decayTimer = timerService.CreateTimer(DecayTickInterval, Refresh);
+        _decayTimer.Start();
 
         Refresh();
     }
 
-    private void OnActivityEvent(object? sender, ActivityEvent e)
-    {
-        _dispatcherService.BeginInvoke(Refresh);
-    }
-
-    private void OnLifecycleChanged(object? sender, (string SessionId, SessionLifecycle NewState) e)
+    private void OnSessionsChanged(object? sender, EventArgs e)
     {
         _dispatcherService.BeginInvoke(Refresh);
     }
@@ -105,20 +108,13 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
     [RelayCommand]
     private void Refresh()
     {
-        var states = _sessionActivityService?.GetAllStates() ?? Array.Empty<SessionActivityState>();
-
-        // Dedupe per working directory: when a session is resumed, the old session
-        // ID stays in the service (no Stop hook ever arrived) and we'd otherwise show
-        // both the stale and the new entry. Keep the most-recently-active state per dir.
-        var ordered = states
-            .GroupBy(s => string.IsNullOrEmpty(s.WorkingDirectory) ? s.SessionId : s.WorkingDirectory,
-                     StringComparer.OrdinalIgnoreCase)
-            .Select(g => g
-                .OrderByDescending(s => s.IsActive)
-                .ThenByDescending(s => s.LastActivityTime ?? s.StartTime)
-                .First())
-            .OrderByDescending(s => s.IsActive)
-            .ThenByDescending(s => s.LastActivityTime ?? s.StartTime)
+        // GetSessionsForDisplay dedupes per workspace; sort alphabetically by folder
+        // name so row positions stay stable across the 2s refresh tick (issue #72).
+        var ordered = (_coord?.GetSessionsForDisplay() ?? (IReadOnlyList<SessionView>)Array.Empty<SessionView>())
+            .OrderBy(v => string.IsNullOrEmpty(v.ActivityState.WorkingDirectory)
+                ? v.SessionId
+                : Path.GetFileName(v.ActivityState.WorkingDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
+                StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         // Update existing rows by Id; remove any that are gone; append new ones.
@@ -127,7 +123,7 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
 
         for (int i = 0; i < ordered.Count; i++)
         {
-            var state = ordered[i];
+            var state = ordered[i].ActivityState;
             seenIds.Add(state.SessionId);
 
             if (!existing.TryGetValue(state.SessionId, out var node))
@@ -289,7 +285,7 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
     private static string MapStateIcon(AgentDisplayState displayState, AgentInstance agent) =>
         displayState switch
         {
-            AgentDisplayState.WaitingPermission => "⚠",
+            AgentDisplayState.WaitingPermission => "⏳",
             AgentDisplayState.Working => "·",
             // Preserve error-icon on terminated subagents that errored.
             AgentDisplayState.Done when agent.State == AgentState.Error => "⚠",
@@ -301,7 +297,7 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
     private static string DescribeActivity(AgentDisplayState displayState, SessionActivityState state, AgentInstance agent) =>
         displayState switch
         {
-            AgentDisplayState.WaitingPermission => "Waiting for permission",
+            AgentDisplayState.WaitingPermission => "Waiting for input",
             AgentDisplayState.Done => "Done",
             AgentDisplayState.TimedOut => "Timed out",
             AgentDisplayState.Working => DescribeWorkingActivity(state, agent),
@@ -317,7 +313,7 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
                         ? tc.ToolName
                         : $"{tc.ToolName}: {Truncate(tc.InputSummary!, 60)}",
             AgentState.ToolCalling => "Running tool",
-            AgentState.WaitingPermission => "Waiting for permission",
+            AgentState.WaitingPermission => "Waiting for input",
             AgentState.Thinking => "Thinking…",
             _ => "Working…"
         };
@@ -362,11 +358,9 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
 
     public void Dispose()
     {
-        if (_sessionActivityService != null)
-        {
-            _sessionActivityService.ActivityEventProcessed -= OnActivityEvent;
-            _sessionActivityService.LifecycleChanged -= OnLifecycleChanged;
-        }
-        _refreshTimer?.Dispose();
+        if (_coord != null)
+            _coord.SessionsChanged -= OnSessionsChanged;
+        _decayTimer?.Stop();
+        _decayTimer?.Dispose();
     }
 }

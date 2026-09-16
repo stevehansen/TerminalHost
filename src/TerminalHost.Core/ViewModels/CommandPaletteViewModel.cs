@@ -13,8 +13,13 @@ namespace TerminalHost.Core.ViewModels;
 /// Claude slash-command entries. Constructed by MainViewModel with host callbacks so the static
 /// provider set and the dynamic feeds share one filter + MRU pipeline.
 /// </summary>
-public sealed partial class CommandPaletteViewModel : ObservableObject, IDisposable
+public sealed partial class CommandPaletteViewModel : BasePanelViewModel
 {
+    public override string PanelId => "commandPalette";
+    public override string PanelTitle => "Command Palette";
+    public override string PanelIcon => "⌘";
+    public override PanelSizePreset SizePreset => PanelSizePreset.Large;
+
     private readonly ICommandPalette _palette;
     private readonly IProfileRegistry _profileRegistry;
     private readonly IClaudeCommandService _claudeCommandService;
@@ -25,9 +30,6 @@ public sealed partial class CommandPaletteViewModel : ObservableObject, IDisposa
     private readonly Action<ClaudeCommand> _executeClaudeCommand;
     private readonly ObservableCollection<PaletteCommand> _filtered = [];
     private readonly EventHandler _claudeChanged;
-
-    [ObservableProperty]
-    private bool _isOpen;
 
     [ObservableProperty]
     private string _searchText = "";
@@ -68,27 +70,18 @@ public sealed partial class CommandPaletteViewModel : ObservableObject, IDisposa
     {
         if (Selected is null) return;
         RecordMru(Selected.Id);
-        IsOpen = false;
-        Selected.Execute();
+        var toExecute = Selected;
+        CloseCommand.Execute(null);
+        toExecute.Execute();
     }
 
     partial void OnSearchTextChanged(string value) => Refilter();
 
-    partial void OnIsOpenChanged(bool value)
+    protected override void OnPanelOpened()
     {
-        if (!value) return;
         SearchText = "";
         Refilter();
         Selected = _filtered.FirstOrDefault();
-    }
-
-    // Currently dead code: MainViewModel is a singleton with the app lifetime
-    // and does not implement IDisposable. Kept for shape correctness so the
-    // CommandsChanged subscription gets a matching tear-down if the host
-    // ever owns the sub-VM's disposal.
-    public void Dispose()
-    {
-        _claudeCommandService.CommandsChanged -= _claudeChanged;
     }
 
     /// <summary>

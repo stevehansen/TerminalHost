@@ -160,6 +160,96 @@ public class SessionActivityStateDeriveTests
         state.DeriveParentDisplay(Now).ShouldBe(AgentDisplayState.Working);
     }
 
+    private static void StampTitle(AgentInstance main, bool working, DateTime at)
+    {
+        main.TerminalTitleWorking = working;
+        main.LastTerminalTitleChangeTime = at;
+    }
+
+    [Fact]
+    public void Spinner_title_overrides_a_recent_Stop_to_Working()
+    {
+        // Terminal-title authority: the spinner means the turn is in progress even if a
+        // Stop hook arrived (the hook stream and the title can disagree at a boundary).
+        var state = NewStateWithMain();
+        var main = state.MainAgent!;
+        main.LastStopHookTime = Now.AddSeconds(-1);   // hooks alone → Done
+        StampTitle(main, working: true, Now.AddSeconds(-1));
+
+        state.DeriveParentDisplay(Now).ShouldBe(AgentDisplayState.Working);
+    }
+
+    [Fact]
+    public void Idle_icon_title_overrides_stuck_Activity_to_Done()
+    {
+        // The core bug: a missed Stop hook leaves LastEventKind == Activity, sticking the
+        // main row on Working forever. The idle-icon title settles it to Done instantly —
+        // no staleness wait (the change was observed just now).
+        var state = NewStateWithMain();
+        var main = state.MainAgent!;
+        main.StampActivity(Now.AddSeconds(-1));        // hooks alone → Working (stuck)
+        StampTitle(main, working: false, Now);         // idle icon just arrived
+
+        state.DeriveParentDisplay(Now).ShouldBe(AgentDisplayState.Done);
+    }
+
+    [Fact]
+    public void Idle_icon_past_threshold_is_TimedOut()
+    {
+        var state = NewStateWithMain();
+        var main = state.MainAgent!;
+        StampTitle(main, working: false, Now.AddMinutes(-3));
+
+        state.DeriveParentDisplay(Now).ShouldBe(AgentDisplayState.TimedOut);
+    }
+
+    [Fact]
+    public void Frozen_spinner_past_window_ages_to_Done()
+    {
+        // Backstop: classified "working" but no further title change within the window
+        // (a dropped idle-title update) must not stick on Working.
+        var state = NewStateWithMain();
+        var main = state.MainAgent!;
+        StampTitle(main, working: true, Now - SessionActivityState.TerminalTitleActiveWindow - TimeSpan.FromSeconds(1));
+
+        state.DeriveParentDisplay(Now).ShouldBe(AgentDisplayState.Done);
+    }
+
+    [Fact]
+    public void Pending_permission_prompt_wins_over_spinner_title()
+    {
+        var state = NewStateWithMain();
+        var main = state.MainAgent!;
+        main.LastPermissionPromptTime = Now.AddSeconds(-2);
+        StampTitle(main, working: true, Now.AddSeconds(-1)); // spinner, but permission wins
+
+        state.DeriveParentDisplay(Now).ShouldBe(AgentDisplayState.WaitingPermission);
+    }
+
+    [Fact]
+    public void No_title_signal_falls_back_to_hook_derivation()
+    {
+        // Container/remote sessions, non-Claude assistants, and sessions before their first
+        // recognized title have no title signal and must behave exactly as before.
+        var state = NewStateWithMain();
+        var main = state.MainAgent!;
+        main.StampActivity(Now.AddSeconds(-1));
+        main.TerminalTitleWorking.ShouldBeNull();
+
+        state.DeriveParentDisplay(Now).ShouldBe(AgentDisplayState.Working);
+    }
+
+    [Theory]
+    [InlineData("⠂ Reuse console title", true)]   // braille spinner frame ⠂
+    [InlineData("⠐ Reuse console title", true)]   // braille spinner frame ⠐
+    [InlineData("✳ Reuse console title", false)]  // ✳ Claude idle icon
+    [InlineData("Reuse console title", null)]          // plain text → defer to hooks
+    [InlineData("", null)]                             // empty → no signal
+    public void ClassifyTerminalTitleWorking_maps_prefix_to_state(string title, bool? expected)
+    {
+        SessionActivityState.ClassifyTerminalTitleWorking(title).ShouldBe(expected);
+    }
+
     [Fact]
     public void Subagent_stays_Done_after_Stop_even_if_old_Activity_arrives_late()
     {

@@ -111,7 +111,9 @@
             </Setter>
         </Style>
 
-        <!-- Context Menu - uses Opened event to set DataContext since context menus aren't in visual tree -->
+        <!-- Context Menu. DataContext is set to the host ViewModel by ContextMenu_Opened
+             (a ContextMenu lives in its own popup tree and can't inherit DataContext through
+             the visual tree). -->
         <ContextMenu x:Key="FileContextMenu" Style="{StaticResource DarkContextMenu}" Opened="ContextMenu_Opened">
             <MenuItem Header="Open" Command="{Binding OpenInViewerCommand}"
                       InputGestureText="Enter">

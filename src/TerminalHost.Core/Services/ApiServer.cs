@@ -35,7 +35,7 @@ public class ApiServer : IApiServer
     private readonly ITaskAggregator? _taskAggregator;
     private readonly McpHandler? _mcpHandler;
     private readonly IClipboardService? _clipboardService;
-    private readonly ISessionActivityService? _sessionActivityService;
+    private readonly ISessionLifecycleCoordinator? _coord;
     private readonly ISessionArchiveService? _sessionArchiveService;
     private readonly ICollabService? _collabService;
     private readonly IEidetService? _eidetService;
@@ -96,7 +96,7 @@ public class ApiServer : IApiServer
         ITaskAggregator? taskAggregator = null,
         McpHandler? mcpHandler = null,
         IClipboardService? clipboardService = null,
-        ISessionActivityService? sessionActivityService = null,
+        ISessionLifecycleCoordinator? sessionCoordinator = null,
         ISessionArchiveService? sessionArchiveService = null,
         ICollabService? collabService = null,
         IEidetService? eidetService = null)
@@ -109,7 +109,7 @@ public class ApiServer : IApiServer
         _taskAggregator = taskAggregator;
         _mcpHandler = mcpHandler;
         _clipboardService = clipboardService;
-        _sessionActivityService = sessionActivityService;
+        _coord = sessionCoordinator;
         _sessionArchiveService = sessionArchiveService;
         _collabService = collabService;
         _eidetService = eidetService;
@@ -686,13 +686,13 @@ public class ApiServer : IApiServer
 
         var sessionId = parts[3];
 
-        if (_sessionActivityService == null)
+        if (_coord == null)
         {
-            await WriteJsonError(response, 503, "SERVICE_UNAVAILABLE", "Session activity service not available.");
+            await WriteJsonError(response, 503, "SERVICE_UNAVAILABLE", "Session coordinator not available.");
             return;
         }
 
-        var state = _sessionActivityService.GetState(sessionId);
+        var state = _coord.GetSession(sessionId)?.ActivityState;
         if (state == null)
         {
             await WriteJsonError(response, 404, "NOT_FOUND", $"Session {sessionId} not found.");
@@ -780,47 +780,16 @@ public class ApiServer : IApiServer
         var sessions = new List<object>();
         var seenIds = new HashSet<string>();
 
-        // Primary source: live sessions from TimelineService (most reliable for active sessions)
-        var liveSessions = _timelineService?.GetLiveSessions();
-        if (liveSessions != null)
+        // Single source via the coordinator. Each SessionView already merges
+        // SessionActivityState + LiveSession, so the two-pass reconciliation that
+        // used to live here is gone.
+        var activeViews = _coord?.GetActiveSessions();
+        if (activeViews != null)
         {
-            foreach (var s in liveSessions)
+            foreach (var v in activeViews)
             {
-                if (!seenIds.Add(s.ClaudeSessionId)) continue;
-                // Reconcile dual-source wire shape: when a SessionActivityState exists, prefer
-                // its stored lifecycle + derived display over the LiveSession's IsActive flag
-                // so this branch can't disagree with the SessionActivityState branch below.
-                var activityState = _sessionActivityService?.GetState(s.ClaudeSessionId);
-                var liveActivity = activityState?.LastActivityTime;
-                var lifecycle = activityState?.Lifecycle.ToString() ?? (s.IsActive ? "Active" : "Completed");
-                var displayState = activityState?.DeriveParentDisplay(DateTime.UtcNow).ToString()
-                                   ?? (s.IsActive ? "Working" : "Done");
-                sessions.Add(new
-                {
-                    sessionId = s.ClaudeSessionId,
-                    workingDirectory = s.WorkingDirectory,
-                    lifecycle,
-                    displayState,
-                    startTime = s.StartTime,
-                    lastActivityTime = liveActivity,
-                    totalAgents = 0,
-                    totalToolCalls = 0,
-                    summary = (string?)null,
-                    gitBranch = (string?)null,
-                    initialPrompt = (string?)null,
-                    source = s.Source.ToString(),
-                    containerName = s.ContainerName
-                });
-            }
-        }
-
-        // Enrich with activity service data (has richer stats)
-        var states = _sessionActivityService?.GetActiveStates();
-        if (states != null)
-        {
-            foreach (var s in states)
-            {
-                if (!seenIds.Add(s.SessionId)) continue;
+                if (!seenIds.Add(v.SessionId)) continue;
+                var s = v.ActivityState;
                 sessions.Add(new
                 {
                     sessionId = s.SessionId,

@@ -39,6 +39,13 @@ public interface ISystemInfoService
     string GetDefaultShell();
 
     /// <summary>
+    /// Gets the default custom command (AI assistant).
+    /// Windows: %USERPROFILE%\.local\bin\claude.exe
+    /// macOS/Linux: searches common installation paths, falls back to "claude"
+    /// </summary>
+    string GetDefaultCustomCommand();
+
+    /// <summary>
     /// Checks if a font family is installed.
     /// </summary>
     bool IsFontInstalled(string fontFamilyName);

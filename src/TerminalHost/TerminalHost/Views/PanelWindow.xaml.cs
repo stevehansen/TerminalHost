@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Windows.Platform;
@@ -10,7 +11,7 @@ namespace TerminalHost.Views;
 /// </summary>
 public partial class PanelWindow : Window
 {
-    private bool _isDocking;
+    private bool _suppressCloseChrome;
 
     public PanelWindow()
     {
@@ -25,23 +26,28 @@ public partial class PanelWindow : Window
     }
 
     /// <summary>
-    /// Event raised when the user requests to dock back to panel.
+    /// Marks an upcoming close as surface-initiated (programmatic Unmount or dock-back).
+    /// Suppresses the <see cref="IPanelCloseGuard"/> prompt and the <c>vm.IsOpen = false</c>
+    /// side-effect — both belong to the router/surface, not the user-initiated close gesture.
     /// </summary>
-    public event EventHandler<IPanelableViewModel>? DockRequested;
-
-    private void DockButton_Click(object sender, RoutedEventArgs e)
+    public void BeginProgrammaticClose()
     {
-        if (DataContext is IPanelableViewModel vm)
+        _suppressCloseChrome = true;
+    }
+
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        if (!_suppressCloseChrome && DataContext is IPanelCloseGuard guard && !guard.CanClose())
         {
-            _isDocking = true;
-            DockRequested?.Invoke(this, vm);
-            Close();
+            e.Cancel = true;
+            return;
         }
+        base.OnClosing(e);
     }
 
     private void OnClosed(object? sender, EventArgs e)
     {
-        if (DataContext is IPanelableViewModel vm && !_isDocking)
+        if (DataContext is IPanelableViewModel vm && !_suppressCloseChrome)
         {
             vm.IsOpen = false;
         }

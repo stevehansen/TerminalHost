@@ -1,3 +1,5 @@
+using TerminalHost.Core.ViewModels;
+
 namespace TerminalHost;
 
 /// <summary>
@@ -7,6 +9,6 @@ public partial class MainWindow
 {
     private void ShowCommandPalette()
     {
-        _viewModel.Palette.IsOpen = true;
+        _panelRouter?.Show<CommandPaletteViewModel>();
     }
 }

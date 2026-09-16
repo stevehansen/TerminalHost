@@ -12,6 +12,11 @@ public sealed class GitStatusService : IGitStatusService, IDisposable
     private const long MaxFileSizeForDiff = 10 * 1024 * 1024; // 10MB
     private const int MaxDiffStringLength = 5_000_000; // 5MB
 
+    // How long a cached summary status is trusted without a .git change. Bounds how
+    // long a bare working-tree edit (no git command) can leave the dirty flag stale;
+    // git operations invalidate the cache immediately via the .git watcher.
+    private static readonly TimeSpan StatusCacheTtl = TimeSpan.FromSeconds(5);
+
     private readonly IGitProcessRunner _gitRunner;
     private readonly IFileSystem _fileSystem;
 
@@ -23,11 +28,26 @@ public sealed class GitStatusService : IGitStatusService, IDisposable
     // every libgit2 call must hold. Disposal also takes the lock, so eviction can
     // never race with an in-flight reader (previously caused SIGSEGV in
     // git_index_read / git_repository_free on macOS).
-    private sealed class RepoEntry
+    private sealed class RepoEntry : IDisposable
     {
         public readonly Repository Repo;
         public readonly object Lock = new();
+
+        // Cached summary status, guarded by Lock. Invalidated by the .git watcher
+        // (Stale) or by StatusCacheTtl lapsing. Stale is written from the watcher
+        // callback without the lock (a bool write is atomic) and read under it.
+        public GitStatus? CachedStatus;
+        public DateTime CachedAtUtc;
+        public volatile bool Stale;
+        public FileSystemWatcher? Watcher;
+
         public RepoEntry(Repository repo) { Repo = repo; }
+
+        public void Dispose()
+        {
+            try { Watcher?.Dispose(); } catch { }
+            try { Repo.Dispose(); } catch { }
+        }
     }
 
     private readonly ConcurrentDictionary<string, RepoEntry> _repoCache = new(StringComparer.OrdinalIgnoreCase);
@@ -44,7 +64,7 @@ public sealed class GitStatusService : IGitStatusService, IDisposable
         {
             lock (entry.Lock)
             {
-                try { entry.Repo.Dispose(); } catch { }
+                entry.Dispose();
             }
         }
         _repoCache.Clear();
@@ -69,12 +89,54 @@ public sealed class GitStatusService : IGitStatusService, IDisposable
         catch { return null; }
 
         var entry = new RepoEntry(fresh);
+
+        // Resolve the .git directory while we still exclusively own the repo (reading
+        // Info.Path concurrently with a RetrieveStatus on the same handle is unsafe).
+        string? gitDir = null;
+        try { gitDir = fresh.Info.Path; } catch { }
+
         if (_repoCache.TryAdd(workingDirectory, entry))
+        {
+            StartGitDirWatcher(entry, gitDir);
             return entry;
+        }
 
         // Lost the race; another thread cached one first. Discard ours.
         fresh.Dispose();
         return _repoCache.TryGetValue(workingDirectory, out var winner) ? winner : null;
+    }
+
+    /// <summary>
+    /// Watches the repository's .git directory so any git operation (stage, commit,
+    /// stash, branch switch, merge, fetch, ...) invalidates the cached summary status
+    /// at once. Best-effort: on failure the TTL still bounds staleness.
+    /// </summary>
+    private static void StartGitDirWatcher(RepoEntry entry, string? gitDir)
+    {
+        if (string.IsNullOrEmpty(gitDir))
+            return;
+
+        try
+        {
+            var watcher = new FileSystemWatcher(gitDir)
+            {
+                IncludeSubdirectories = true,
+                NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName
+                             | NotifyFilters.LastWrite | NotifyFilters.Size,
+            };
+            void MarkStale(object? _, FileSystemEventArgs __) => entry.Stale = true;
+            watcher.Changed += MarkStale;
+            watcher.Created += MarkStale;
+            watcher.Deleted += MarkStale;
+            watcher.Renamed += (_, __) => entry.Stale = true;
+            watcher.Error += (_, __) => entry.Stale = true; // buffer overflow → recompute
+            watcher.EnableRaisingEvents = true;
+            entry.Watcher = watcher;
+        }
+        catch
+        {
+            // Watcher is optional; the cache self-heals via StatusCacheTtl without it.
+        }
     }
 
     /// <summary>
@@ -88,7 +150,7 @@ public sealed class GitStatusService : IGitStatusService, IDisposable
         {
             lock (entry.Lock)
             {
-                try { entry.Repo.Dispose(); } catch { }
+                entry.Dispose();
             }
         }
     }
@@ -111,6 +173,14 @@ public sealed class GitStatusService : IGitStatusService, IDisposable
             bool failed = false;
             lock (entry.Lock)
             {
+                // Serve the cached status unless a .git change invalidated it or the
+                // TTL lapsed. Repeated sidebar/tab sweeps then cost nothing per repo.
+                if (!entry.Stale && entry.CachedStatus != null &&
+                    (DateTime.UtcNow - entry.CachedAtUtc) < StatusCacheTtl)
+                {
+                    return entry.CachedStatus;
+                }
+
                 try
                 {
                     var repo = entry.Repo;
@@ -127,11 +197,15 @@ public sealed class GitStatusService : IGitStatusService, IDisposable
                         status.BranchName = repo.Head.FriendlyName ?? "";
                     }
 
-                    // Dirty status (any staged, unstaged, or untracked changes)
+                    // Dirty status. Untracked files are deliberately excluded: enumerating
+                    // them forces a full working-tree walk (libgit2 has no untracked-cache
+                    // or fsmonitor), which dominated the per-repo cost. The dirty flag now
+                    // reflects staged and tracked-file changes only — a repo whose only
+                    // changes are brand-new untracked files won't light up. The detailed
+                    // changes panel (GetModifiedFilesAsync) still lists untracked files.
                     var repoStatus = repo.RetrieveStatus(new StatusOptions
                     {
-                        IncludeUntracked = true,
-                        RecurseUntrackedDirs = false, // faster: don't recurse into untracked dirs
+                        IncludeUntracked = false,
                     });
                     status.IsDirty = repoStatus.IsDirty;
 
@@ -146,6 +220,10 @@ public sealed class GitStatusService : IGitStatusService, IDisposable
 
                     // Stash count
                     status.StashCount = repo.Stashes.Count();
+
+                    entry.CachedStatus = status;
+                    entry.CachedAtUtc = DateTime.UtcNow;
+                    entry.Stale = false;
                 }
                 catch
                 {

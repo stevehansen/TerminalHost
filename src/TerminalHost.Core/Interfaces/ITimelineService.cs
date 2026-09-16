@@ -67,16 +67,9 @@ public interface ITimelineService
 
     #endregion
 
-    #region Hook Event Handling
+    #region Hook Installation
 
-    void HandleSessionStart(HookEvent hookEvent);
-    void HandleFileChanged(HookEvent hookEvent);
-    Task HandleSessionStopAsync(HookEvent hookEvent);
     Intent? FindIntentByWorkingDirectory(string workingDirectory);
-    void HandleToolStart(HookEvent hookEvent);
-    void HandleToolEnd(HookEvent hookEvent);
-    void StartInactivityTimer();
-    void StopInactivityTimer();
     bool AreHooksInstalled();
     bool InstallHooks();
     bool UninstallHooks();
@@ -96,11 +89,6 @@ public interface ITimelineService
     event EventHandler<Intent?>? CurrentIntentChanged;
     event EventHandler<bool>? FocusStateChanged;
     event EventHandler<(string WorktreePath, string? InitialPrompt)>? OpenProjectRequested;
-
-    /// <summary>
-    /// Fired when live sessions change (added, removed, or status changed).
-    /// </summary>
-    event EventHandler? LiveSessionsChanged;
 
     #endregion
 }

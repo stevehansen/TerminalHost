@@ -168,7 +168,6 @@ public partial class MainWindow : Window
         _mainViewModel.PrReviewRequested += OnPrReviewRequested;
         _mainViewModel.DashboardPrReviewRequested += OnDashboardPrReviewRequested;
         _mainViewModel.RunTerminalRequested += OnRunTerminalRequested;
-        _mainViewModel.CenterPanelRestoreRequested += OnCenterPanelRestoreRequested;
         _mainViewModel.AiPanelCommandRequested += OnAiPanelCommandRequested;
 
         // Subscribe to view model property changes for tab-switch rebinding
@@ -710,37 +709,6 @@ public partial class MainWindow : Window
     #endregion
 
     #region Popup Event Handlers
-
-    private async void OnCenterPanelRestoreRequested(object? sender, CenterPanelRestoreEventArgs e)
-    {
-        if (e.Tab is not TerminalPairTabViewModel tab) return;
-
-        // When SkipDataLoad is true (non-selected tabs during startup), skip async data loading
-        // to avoid race conditions with singleton panel ViewModels. Data loads on demand
-        // when the user switches to the tab (via tab-switch rebinding in OnViewModelPropertyChanged).
-        switch (e.PanelId)
-        {
-            case "unifiedGit":
-                var gitTab = GitPanelTab.Changes;
-                if (e.GitPanelActiveTab != null && Enum.TryParse<GitPanelTab>(e.GitPanelActiveTab, out var parsedTab))
-                {
-                    gitTab = parsedTab;
-                }
-                if (e.SkipDataLoad)
-                {
-                    tab.ShowCenterPanel(_unifiedGitPanelViewModel);
-                }
-                else
-                {
-                    await _unifiedGitPanelViewModel.OpenOnTabAsync(tab, gitTab);
-                    tab.ShowCenterPanel(_unifiedGitPanelViewModel);
-                }
-                break;
-            // Note: Other center panel types (branchComparison, searchFiles, prReview, etc.)
-            // are not yet implemented as IPanelableViewModel in Avalonia. Add cases here as
-            // they are migrated to inherit from BasePanelViewModel.
-        }
-    }
 
     private async void OnGitChangesRequested(object? sender, EventArgs e)
     {

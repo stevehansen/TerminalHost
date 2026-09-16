@@ -5,8 +5,12 @@ namespace TerminalHost.Core.Interfaces;
 /// <summary>
 /// Maintains in-memory SessionActivityState per active Claude Code session.
 /// Processes hook events and transcript data into rich activity tracking.
+/// <para>
+/// Internal post-Phase 3: consumers go through <see cref="ISessionLifecycleCoordinator"/>.
+/// The concrete <c>SessionActivityService</c> remains public for DI-by-concrete-type.
+/// </para>
 /// </summary>
-public interface ISessionActivityService
+internal interface ISessionActivityService
 {
     /// <summary>
     /// Gets the activity state for a session, or null if not tracked.
@@ -43,6 +47,17 @@ public interface ISessionActivityService
     void ProcessHookEvent(HookEvent hookEvent, HookEventData? rawData = null);
 
     /// <summary>
+    /// Records the AI assistant terminal's current <paramref name="title"/> for
+    /// <paramref name="workingDirectory"/> at <paramref name="timestampUtc"/>. The title is
+    /// classified (spinner = working, idle icon = done) and stamped on the matching
+    /// session's main agent so <see cref="SessionActivityState.DeriveParentDisplay"/> can
+    /// surface an instant, hook-independent Working/Done state. Matches the directory's
+    /// display winner (most-recently-active session); no-op if no tracked session matches
+    /// or the title isn't recognized. Returns true if a session was stamped.
+    /// </summary>
+    bool RecordTerminalTitleActivity(string workingDirectory, string title, DateTime timestampUtc);
+
+    /// <summary>
     /// Enriches a session's activity state by parsing its transcript file.
     /// Called when a session ends or on-demand for additional detail.
     /// </summary>
@@ -53,6 +68,16 @@ public interface ISessionActivityService
     /// Called by ITranscriptWatcher with incremental events from JSONL file changes.
     /// </summary>
     void ProcessTranscriptEvents(string sessionId, IReadOnlyList<ActivityEvent> events, string? summary = null, string? model = null);
+
+    /// <summary>
+    /// Forcibly sets a session's lifecycle under the service lock and raises
+    /// <see cref="LifecycleChanged"/>. Terminal states stamp <see cref="SessionActivityState.EndTime"/>
+    /// (if not already set); transitioning to <see cref="SessionLifecycle.Active"/> clears
+    /// EndTime and reactivates the main agent. No-op if the session is unknown or already
+    /// in the target lifecycle. The single write path for out-of-band lifecycle mutation
+    /// (used by ISessionLifecycleCoordinator.Advanced).
+    /// </summary>
+    bool MarkLifecycle(string sessionId, SessionLifecycle newLifecycle);
 
     /// <summary>
     /// Gets tool call statistics for a session.

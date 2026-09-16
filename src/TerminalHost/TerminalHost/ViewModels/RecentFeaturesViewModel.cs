@@ -13,8 +13,16 @@ namespace TerminalHost.ViewModels;
 /// Shows palette commands grouped by the week they were introduced.
 /// Used as the empty-state view and as a center panel (Ctrl+F1).
 /// </summary>
-public partial class RecentFeaturesViewModel : BasePanelViewModel
+public partial class RecentFeaturesViewModel : BasePanelViewModel, IPanelPlacement, IPanelOpenContext
 {
+    public PanelZone PreferredZone => PanelZone.Center;
+
+    public Task OnOpenedAsync(object? context)
+    {
+        OnOpened();
+        return Task.CompletedTask;
+    }
+
     private readonly MainViewModel _mainViewModel;
     private readonly IConfigurationService _configService;
     private readonly ITimerService _timerService;

@@ -272,7 +272,8 @@ public class AppConfiguration
             Icon = "b",
             Text = "dev b",
             Target = QuickCommandTarget.Shell,
-            AppendNewline = true
+            AppendNewline = true,
+            Shortcut = "Ctrl+Shift+B"
         },
         new QuickCommand
         {
@@ -522,6 +523,13 @@ public class AppSettings
     public Dictionary<string, string> ClaudeCommandShortcuts { get; set; } = [];
 
     /// <summary>
+    /// Persisted layout for AppShell-scoped panels routed through <see cref="IPanelRouter"/>.
+    /// Popup-zone entries are filtered out before save (popups are transient).
+    /// </summary>
+    [JsonPropertyName("appShellPanels")]
+    public List<PersistedPanelEntry> AppShellPanels { get; set; } = [];
+
+    /// <summary>
     /// GitHub Dashboard settings.
     /// </summary>
     [JsonPropertyName("dashboard")]
@@ -601,6 +609,20 @@ public class AppSettings
     /// </summary>
     [JsonPropertyName("sidebarCollapsed")]
     public bool SidebarCollapsed { get; set; } = false;
+
+    /// <summary>
+    /// Whether the Sessions panel is visible globally across all workspaces.
+    /// </summary>
+    [JsonPropertyName("showSessionsPanel")]
+    public bool ShowSessionsPanel { get; set; } = false;
+
+    /// <summary>
+    /// Fraction of the tab content area the hoisted right dock occupies (0..1). Global because
+    /// the dock is owned by the main window, not by any single workspace tab. Supersedes the
+    /// per-directory <c>ExplorerSplitRatio</c> for dock width.
+    /// </summary>
+    [JsonPropertyName("rightDockSplitRatio")]
+    public double RightDockSplitRatio { get; set; } = 0.25;
 
     /// <summary>
     /// Controls how aggressively git status is tracked for workspaces.
@@ -1085,4 +1107,20 @@ public class StatusOverlaySettings
     /// </summary>
     [JsonPropertyName("instances")]
     public List<StatusOverlayInstanceSettings> Instances { get; set; } = [];
+}
+
+/// <summary>
+/// Persisted form of a <see cref="PanelLayoutEntry"/>. The zone is stored as a string for
+/// forward-compatibility with future <see cref="PanelZone"/> enum additions.
+/// </summary>
+public class PersistedPanelEntry
+{
+    [JsonPropertyName("panelId")]
+    public string PanelId { get; set; } = "";
+
+    [JsonPropertyName("zone")]
+    public string Zone { get; set; } = "";
+
+    [JsonPropertyName("isOpen")]
+    public bool IsOpen { get; set; }
 }

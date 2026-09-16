@@ -584,6 +584,7 @@ namespace VtNetCore.VirtualTerminal
                     Hidden = currentAttribute.Hidden,
                     Blink = currentAttribute.Blink,
                     Bold = currentAttribute.Bright,
+                    Faint = currentAttribute.Faint,
                     Italic = false,
                     Underline = currentAttribute.Underscore,
                     Text = ""
@@ -617,6 +618,7 @@ namespace VtNetCore.VirtualTerminal
                                 Hidden = currentAttribute.Hidden,
                                 Blink = currentAttribute.Blink,
                                 Bold = currentAttribute.Bright,
+                                Faint = currentAttribute.Faint,
                                 Italic = false,
                                 Underline = currentAttribute.Underscore,
                                 Text = ""
@@ -1651,14 +1653,17 @@ namespace VtNetCore.VirtualTerminal
         public void ShiftIn()
         {
             LogController("ShiftIn()");
-            CursorState.Utf8 = false;
+            // SO/SI select the G0/G1 charset invocation; they must NOT disable UTF-8 byte
+            // decoding. A stray 0x0E/0x0F in a UTF-8 stream used to flip Utf8 off permanently,
+            // after which every multibyte lead byte (e.g. 0xE2 in box-drawing/emoji) decoded
+            // via the GR path as 0xE2-0x80=0x62='b' — the "b" flood. DEC special graphics
+            // (ESC ( 0) still works: it maps the 7-bit range via CharacterSetMode below.
             CursorState.CharacterSetMode = ECharacterSetMode.IsoG0;
         }
 
         public void ShiftOut()
         {
             LogController("ShiftOut()");
-            CursorState.Utf8 = false;
             CursorState.CharacterSetMode = ECharacterSetMode.IsoG1;
         }
 
@@ -1687,7 +1692,7 @@ namespace VtNetCore.VirtualTerminal
         {
             LogController("InvokeCharacterSetModeR(mode: " + mode.ToString() + ")");
 
-            CursorState.Utf8 = false;
+            // Invoking a charset into GR must not disable UTF-8 byte decoding (see ShiftIn).
             CursorState.CharacterSetModeR = mode;
         }
 
@@ -1731,10 +1736,25 @@ namespace VtNetCore.VirtualTerminal
                 CursorState.Attributes.BackgroundRgb.Set(xParseColor);
         }
 
+        // Resolves a 256-color palette index. The Iso8613 dictionary only contains the
+        // 6x6x6 color cube and grayscale ramp (indices 16-255); the first 16 entries
+        // are the basic ANSI colors (0-7) and their bright variants (8-15), which we
+        // map onto ETerminalColor.
+        private static TerminalColor ResolvePaletteEntry(int paletteEntry)
+        {
+            if (paletteEntry >= 0 && paletteEntry <= 15)
+            {
+                var basic = (ETerminalColor)(paletteEntry & 0x7);
+                return new TerminalColor(basic, paletteEntry >= 8);
+            }
+            return TerminalColor.Iso8613.TryGetValue(paletteEntry, out var c) ? c : null;
+        }
+
         public void SetIso8613PaletteForeground(int paletteEntry)
         {
             LogController("SetIso8613PaletteForeground(e:" + paletteEntry + ")");
-            if(TerminalColor.Iso8613.TryGetValue(paletteEntry, out TerminalColor color))
+            var color = ResolvePaletteEntry(paletteEntry);
+            if (color != null)
             {
                 if (CursorState.Attributes.ForegroundRgb == null)
                     CursorState.Attributes.ForegroundRgb = new TerminalColor(color);
@@ -1746,7 +1766,8 @@ namespace VtNetCore.VirtualTerminal
         public void SetIso8613PaletteBackground(int paletteEntry)
         {
             LogController("SetIso8613PaletteBackground(e:" + paletteEntry + ")");
-            if (TerminalColor.Iso8613.TryGetValue(paletteEntry, out TerminalColor color))
+            var color = ResolvePaletteEntry(paletteEntry);
+            if (color != null)
             {
                 if (CursorState.Attributes.BackgroundRgb == null)
                     CursorState.Attributes.BackgroundRgb = new TerminalColor(color);
@@ -1766,6 +1787,7 @@ namespace VtNetCore.VirtualTerminal
                     CursorState.Attributes.ForegroundColor = ETerminalColor.White;
                     CursorState.Attributes.BackgroundColor = ETerminalColor.Black;
                     CursorState.Attributes.Bright = false;
+                    CursorState.Attributes.Faint = false;
                     CursorState.Attributes.Standout = false;
                     CursorState.Attributes.Underscore = false;
                     CursorState.Attributes.Blink = false;
@@ -1776,10 +1798,12 @@ namespace VtNetCore.VirtualTerminal
                 case 1:
                     LogController("SetCharacterAttribute(bright)");
                     CursorState.Attributes.Bright = true;
+                    CursorState.Attributes.Faint = false;
                     break;
 
                 case 2:
-                    LogController("SetCharacterAttribute(dim)");
+                    LogController("SetCharacterAttribute(faint)");
+                    CursorState.Attributes.Faint = true;
                     CursorState.Attributes.Bright = false;
                     break;
 
@@ -1809,8 +1833,9 @@ namespace VtNetCore.VirtualTerminal
                     break;
 
                 case 22:
-                    LogController("SetCharacterAttribute(not bright)");
+                    LogController("SetCharacterAttribute(normal intensity)");
                     CursorState.Attributes.Bright = false;
+                    CursorState.Attributes.Faint = false;
                     break;
 
                 case 24:

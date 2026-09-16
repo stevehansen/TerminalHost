@@ -12,8 +12,10 @@ namespace TerminalHost.ViewModels;
 /// ViewModel for File Blame panel (Ctrl+Shift+B).
 /// Shows line-by-line blame annotations for a file.
 /// </summary>
-public partial class FileBlameViewModel : BasePanelViewModel
+public partial class FileBlameViewModel : BasePanelViewModel, IPanelPlacement
 {
+    public PanelZone PreferredZone => PanelZone.Center;
+
     private readonly IGitStatusService _gitStatusService;
     private readonly IDialogService _dialogService;
     private readonly IToastService _toastService;

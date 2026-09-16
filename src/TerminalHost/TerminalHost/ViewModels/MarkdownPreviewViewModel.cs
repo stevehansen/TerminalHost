@@ -1,6 +1,7 @@
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Core.ViewModels;
 
@@ -10,8 +11,10 @@ namespace TerminalHost.ViewModels;
 /// ViewModel for the Markdown Preview (Ctrl+M).
 /// Supports Panel, Popup, and Window display states.
 /// </summary>
-public partial class MarkdownPreviewViewModel : BasePanelViewModel
+public partial class MarkdownPreviewViewModel : BasePanelViewModel, IPanelPlacement
 {
+    public PanelZone PreferredZone => PanelZone.Center;
+
     private readonly IMarkdownService _markdownService;
     private readonly IFileSystem _fileSystem;
     private readonly IDispatcherService _dispatcherService;

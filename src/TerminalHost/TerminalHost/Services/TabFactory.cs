@@ -39,6 +39,8 @@ public sealed class TabFactory : ITabFactory
             _serviceProvider.GetRequiredService<IGitStatusService>(),
             _serviceProvider.GetRequiredService<IToastService>(),
             duplicateIndex,
-            _serviceProvider.GetService<ITaskService>());
+            _serviceProvider.GetService<ITaskService>(),
+            _serviceProvider.GetService<ISessionLifecycleCoordinator>(),
+            _serviceProvider.GetRequiredService<IPanelRouter>());
     }
 }

@@ -3,8 +3,8 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Threading;
-using TerminalHost.Core.Domain; // For PaletteCommand
-using TerminalHost.ViewModels; // For MainViewModel
+using TerminalHost.Core.Domain;
+using TerminalHost.Core.ViewModels;
 
 namespace TerminalHost.Views.Popups;
 
@@ -30,12 +30,8 @@ public partial class CommandPaletteView : UserControl
 
     private void FocusSearchBox()
     {
-        // Defer focus to Input priority so the Popup's HWND is fully created.
-        // Then force Win32 focus to the Popup's HWND so the terminal's HwndHost
-        // stops intercepting special keys (Backspace, Enter, Escape, arrows).
         Dispatcher.BeginInvoke(new Action(() =>
         {
-            // Move Win32 focus from the terminal HwndHost to this Popup's HWND
             var source = PresentationSource.FromVisual(PaletteSearchBox) as HwndSource;
             if (source != null)
                 SetFocus(source.Handle);
@@ -48,7 +44,7 @@ public partial class CommandPaletteView : UserControl
 
     private void UserControl_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (DataContext is not MainViewModel mainViewModel) return;
+        if (DataContext is not CommandPaletteViewModel vm) return;
 
         if (e.Key == Key.Down)
         {
@@ -74,17 +70,15 @@ public partial class CommandPaletteView : UserControl
         }
         else if (e.Key == Key.Escape)
         {
-            mainViewModel.Palette.IsOpen = false;
+            vm.CloseCommand.Execute(null);
             e.Handled = true;
         }
     }
 
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
-        if (DataContext is MainViewModel mainViewModel)
-        {
-            mainViewModel.Palette.IsOpen = false;
-        }
+        if (DataContext is CommandPaletteViewModel vm)
+            vm.CloseCommand.Execute(null);
     }
 
     private void PaletteCommandList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -94,11 +88,10 @@ public partial class CommandPaletteView : UserControl
 
     private void ExecuteSelectedPaletteCommand()
     {
-        if (DataContext is not MainViewModel mainViewModel) return;
-
+        if (DataContext is not CommandPaletteViewModel vm) return;
         if (PaletteCommandList.SelectedItem is PaletteCommand command)
         {
-            mainViewModel.Palette.IsOpen = false;
+            vm.CloseCommand.Execute(null);
             command.Execute();
         }
     }

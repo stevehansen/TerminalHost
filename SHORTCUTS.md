@@ -46,7 +46,7 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 | `Ctrl+M` | Open Markdown preview | Project tab | Center panel |
 | `Ctrl+Shift+I` | Open Timeline Mode | Global | Visual timeline of AI development sessions |
 | `Ctrl+Shift+K` | Claude Tasks Panel | Project tab | Right sidebar panel |
-| `Ctrl+Shift+B` | Sessions tree panel | Project tab | Right sidebar panel — active sessions and subagents with live activity and context usage |
+| `Ctrl+Shift+A` | Sessions panel | Global | Right sidebar panel — active sessions and subagents with live activity and context usage. Visibility is global (synced across all workspaces). |
 | `Ctrl+Shift+M` | Memory Browser | Project tab | Center panel — browse, search, manage memories |
 | `F4` | Toggle voice commands | Global | Start/stop voice listening |
 | `Ctrl+Shift+Y` | Toggle status overlay | Global | Floating activity indicator |
@@ -72,9 +72,8 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 
 | Shortcut | Action | Scope | Notes |
 |----------|--------|-------|-------|
+| `Ctrl+Shift+B` | Build (`dev b`) | Shell terminal | Default Quick Command — user-configurable |
 | `F6` | Run tests | Project tab | Center panel |
-
-> **Note:** `Ctrl+Shift+B` was previously the default "Build" quick command (sends `dev b` to the shell). It is now bound to the Sessions tree panel. The `dev-build` quick command still exists in defaults but no longer has a keybinding — assign one in Settings if you want it.
 
 ### Timeline Mode Shortcuts (When Timeline Tab Focused)
 
@@ -205,7 +204,6 @@ These shortcuts are reserved by the system or have special meaning:
 - `Ctrl+Z` - (Undo - may want to reserve)
 
 ### Unused Ctrl+Shift+Key combinations:
-- `Ctrl+Shift+A` - Available
 - `Ctrl+Shift+J` - Available
 - `Ctrl+Shift+M` - Memory Browser (center panel)
 - `Ctrl+Shift+Q` - Available (freed from Quick Task removal)

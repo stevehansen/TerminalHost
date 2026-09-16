@@ -49,20 +49,46 @@
                         DataContext="{Binding}"
                         Visibility="{Binding IsTabStripVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
-        <!-- Tab Content Area (Column 2, Row 1) -->
+        <!-- Tab Content Area (Column 2, Row 1). The hoisted right dock (Explorer + global Sessions)
+             is a sibling column shared by all tabs and the empty state. Its column widths and
+             visibility are driven from code-behind by the RightDockCoordinator. -->
         <Grid Grid.Row="1" Grid.Column="2">
-            <!-- Show when there's a selected tab -->
-            <ContentControl Content="{Binding SelectedTab}"
-                            AutomationProperties.AutomationId="MainContentControl"
-                            Visibility="{Binding SelectedTab, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Grid.ColumnDefinitions>
+                <!-- Center content (active tab or empty state) -->
+                <ColumnDefinition x:Name="CenterContentColumn" Width="*"/>
+                <!-- Dock splitter column (collapsed when dock empty) -->
+                <ColumnDefinition x:Name="RightDockSplitterColumn" Width="0"/>
+                <!-- Hoisted right dock column (collapsed when dock empty) -->
+                <ColumnDefinition x:Name="RightDockColumn" Width="0"/>
+            </Grid.ColumnDefinitions>
 
-            </ContentControl>
+            <!-- Center content switcher (Column 0): active tab + empty state share this column -->
+            <Grid Grid.Column="0">
+                <!-- Show when there's a selected tab -->
+                <ContentControl Content="{Binding SelectedTab}"
+                                AutomationProperties.AutomationId="MainContentControl"
+                                Visibility="{Binding SelectedTab, Converter={StaticResource BoolToVisibilityConverter}}">
 
-            <!-- Empty State - Show What's New / Recent Features -->
-            <Grid Visibility="{Binding SelectedTab, Converter={StaticResource InverseBoolToVisibilityConverter}}"
-                  Background="{StaticResource BackgroundDarkestBrush}">
-                <views:RecentFeaturesContentView x:Name="EmptyStateRecentFeatures" />
+                </ContentControl>
+
+                <!-- Empty State - Show What's New / Recent Features -->
+                <Grid Visibility="{Binding SelectedTab, Converter={StaticResource InverseBoolToVisibilityConverter}}"
+                      Background="{StaticResource BackgroundDarkestBrush}">
+                    <views:RecentFeaturesContentView x:Name="EmptyStateRecentFeatures" />
+                </Grid>
             </Grid>
+
+            <!-- Right Dock Splitter (Column 1) -->
+            <GridSplitter x:Name="RightDockSplitter" Grid.Column="1" Width="4"
+                          Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"
+                          Visibility="Collapsed"
+                          DragCompleted="RightDockSplitter_DragCompleted"/>
+
+            <!-- Hoisted Right Dock (Column 2): Explorer + other docked panels + global Sessions -->
+            <controls:PanelHost x:Name="RightDockHost"
+                                Grid.Column="2"
+                                Side="Right"
+                                Visibility="Collapsed"/>
         </Grid>
 
         <!-- Voice Command Floating Bar (overlays top of content area) -->
@@ -71,46 +97,14 @@
                              Panel.ZIndex="100"
                              DataContext="{Binding VoiceBar}"/>
 
-        <!-- Tab Dropdown Popup -->
-        <Popup x:Name="TabDropdownPopup"
+        <!-- Routed Popup Host (Phase 1: shared popup for Help, Command Palette, Tab Switcher, Tab Dropdown).
+             Mounted view is selected by implicit DataTemplate keyed off the VM type (see App.xaml). -->
+        <Popup x:Name="RoutedPopupHost"
                Placement="Center"
                PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
                StaysOpen="False"
-               AllowsTransparency="True"
-               IsOpen="{Binding IsTabDropdownOpen, Mode=TwoWay}">
-            <popups:TabDropdownView x:Name="TabDropdownViewControl" DataContext="{Binding}" />
-        </Popup>
-
-        <!-- Tab Switcher Popup (Ctrl+Shift+T) -->
-        <Popup x:Name="TabSwitcherPopup"
-               Placement="Center"
-               PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
-               StaysOpen="False"
-               AllowsTransparency="True"
-               IsOpen="{Binding IsTabSwitcherOpen, Mode=TwoWay}">
-            <popups:TabSwitcherView x:Name="TabSwitcherViewControl" DataContext="{Binding}" />
-        </Popup>
-
-        <!-- File Viewer - now rendered as center panel in TerminalPairView via PanelContentTemplates -->
-
-        <!-- Help Popup (F1) -->
-        <Popup x:Name="HelpPopup"
-               Placement="Center"
-               PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
-               StaysOpen="False"
-               AllowsTransparency="True"
-               IsOpen="{Binding IsHelpOpen, Mode=TwoWay}">
-            <popups:HelpView x:Name="HelpViewControl" DataContext="{Binding HelpViewModel}" />
-        </Popup>
-
-        <!-- Command Palette Popup (Ctrl+Shift+P) -->
-        <Popup x:Name="CommandPalettePopup"
-               Placement="Center"
-               PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
-               StaysOpen="False"
-               AllowsTransparency="True"
-               IsOpen="{Binding Palette.IsOpen, Mode=TwoWay}">
-            <popups:CommandPaletteView DataContext="{Binding}" />
+               AllowsTransparency="True">
+            <ContentPresenter x:Name="RoutedPopupContent"/>
         </Popup>
 
         <!-- Scratch Pad - no popup view here, handled via panel system like Markdown Preview -->

@@ -10,10 +10,10 @@ namespace TerminalHost.Core.Services;
 /// Maintains in-memory SessionActivityState per active Claude Code session.
 /// Processes hook events and transcript data into rich activity tracking.
 /// </summary>
-public class SessionActivityService : ISessionActivityService
+public sealed class SessionActivityService : ISessionActivityService
 {
     private readonly object _lock = new();
-    private readonly Dictionary<string, SessionActivityState> _states = [];
+    private readonly Dictionary<string, SessionActivityState> _states = new(StringComparer.OrdinalIgnoreCase);
     private readonly TranscriptParserService _transcriptParser = new();
 
     public event EventHandler<ActivityEvent>? ActivityEventProcessed;
@@ -72,60 +72,93 @@ public class SessionActivityService : ISessionActivityService
         }
     }
 
+    public bool RecordTerminalTitleActivity(string workingDirectory, string title, DateTime timestampUtc)
+    {
+        if (string.IsNullOrEmpty(workingDirectory)) return false;
+
+        // Unrecognized titles carry no verdict — leave the prior signal intact so a stray
+        // title doesn't drop the agent to the hook-derived fallback mid-turn.
+        var working = SessionActivityState.ClassifyTerminalTitleWorking(title);
+        if (working is null) return false;
+
+        lock (_lock)
+        {
+            // Pick the session this terminal most likely belongs to: the directory's
+            // display winner (mirrors SessionLifecycleCoordinator.GetSessionsForDisplay so
+            // we stamp the same row the panel renders, not a lingering resumed-session id).
+            var state = _states.Values
+                .Where(s => string.Equals(s.WorkingDirectory, workingDirectory, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(s => s.IsActive)
+                .ThenByDescending(s => s.LastActivityTime ?? s.StartTime)
+                .FirstOrDefault();
+
+            var main = state?.MainAgent;
+            if (main is null) return false;
+
+            main.TerminalTitleWorking = working;
+            main.LastTerminalTitleChangeTime = timestampUtc;
+            // While working, keep this session as the directory's display winner.
+            if (working == true && (state!.LastActivityTime is null || timestampUtc > state.LastActivityTime))
+                state.LastActivityTime = timestampUtc;
+            return true;
+        }
+    }
+
     public void ProcessHookEvent(HookEvent hookEvent, HookEventData? rawData = null)
     {
         // Prefer RawData stored on the event itself (from API/IPC path)
         rawData ??= hookEvent.RawData;
 
         var events = new List<ActivityEvent>();
+        var lifecycleChanges = new List<(string SessionId, SessionLifecycle NewState)>();
 
         lock (_lock)
         {
             switch (hookEvent.EventType)
             {
                 case HookEventType.SessionStart:
-                    events.AddRange(ProcessSessionStart(hookEvent));
+                    events.AddRange(ProcessSessionStart(hookEvent, lifecycleChanges));
                     break;
 
                 case HookEventType.ToolStart:
-                    events.AddRange(ProcessToolStart(hookEvent, rawData));
+                    events.AddRange(ProcessToolStart(hookEvent, rawData, lifecycleChanges));
                     break;
 
                 case HookEventType.ToolEnd:
-                    events.AddRange(ProcessToolEnd(hookEvent, rawData));
+                    events.AddRange(ProcessToolEnd(hookEvent, rawData, lifecycleChanges));
                     break;
 
                 case HookEventType.ToolError:
-                    events.AddRange(ProcessToolError(hookEvent, rawData));
+                    events.AddRange(ProcessToolError(hookEvent, rawData, lifecycleChanges));
                     break;
 
                 case HookEventType.SessionStop:
                 case HookEventType.SessionEnd:
-                    events.AddRange(ProcessSessionStop(hookEvent));
+                    events.AddRange(ProcessSessionStop(hookEvent, lifecycleChanges));
                     break;
 
                 case HookEventType.SubagentStart:
-                    events.AddRange(ProcessSubagentStart(hookEvent));
+                    events.AddRange(ProcessSubagentStart(hookEvent, lifecycleChanges));
                     break;
 
                 case HookEventType.SubagentStop:
-                    events.AddRange(ProcessSubagentStop(hookEvent));
+                    events.AddRange(ProcessSubagentStop(hookEvent, lifecycleChanges));
                     break;
 
                 case HookEventType.Notification:
-                    events.AddRange(ProcessNotification(hookEvent));
+                    events.AddRange(ProcessNotification(hookEvent, lifecycleChanges));
                     break;
 
                 case HookEventType.FileChanged:
-                    events.AddRange(ProcessFileChanged(hookEvent));
+                    events.AddRange(ProcessFileChanged(hookEvent, lifecycleChanges));
                     break;
 
                 case HookEventType.AgentMetadataUpdate:
-                    events.AddRange(ProcessAgentMetadataUpdate(hookEvent));
+                    events.AddRange(ProcessAgentMetadataUpdate(hookEvent, lifecycleChanges));
                     break;
 
                 case HookEventType.AgentDeleted:
-                    events.AddRange(ProcessAgentDeleted(hookEvent));
+                    events.AddRange(ProcessAgentDeleted(hookEvent, lifecycleChanges));
                     break;
             }
         }
@@ -135,6 +168,10 @@ public class SessionActivityService : ISessionActivityService
         {
             ActivityEventProcessed?.Invoke(this, evt);
         }
+        foreach (var lc in lifecycleChanges)
+        {
+            LifecycleChanged?.Invoke(this, lc);
+        }
     }
 
     public void ProcessTranscriptEvents(string sessionId, IReadOnlyList<ActivityEvent> events, string? summary = null, string? model = null)
@@ -142,11 +179,14 @@ public class SessionActivityService : ISessionActivityService
         if (events.Count == 0 && summary == null && model == null)
             return;
 
+        var lifecycleChanges = new List<(string SessionId, SessionLifecycle NewState)>();
+
         lock (_lock)
         {
             if (!_states.TryGetValue(sessionId, out var state))
                 return;
 
+            ReviveIfTerminal(state, lifecycleChanges);
             foreach (var evt in events)
             {
                 ApplyEventToState(state, evt);
@@ -163,6 +203,10 @@ public class SessionActivityService : ISessionActivityService
         foreach (var evt in events)
         {
             ActivityEventProcessed?.Invoke(this, evt);
+        }
+        foreach (var lc in lifecycleChanges)
+        {
+            LifecycleChanged?.Invoke(this, lc);
         }
     }
 
@@ -190,20 +234,20 @@ public class SessionActivityService : ISessionActivityService
         if (!result.ParsedSuccessfully)
             return;
 
-        var lifecycleEvents = new List<(string SessionId, SessionLifecycle NewState)>();
+        var lifecycleChanges = new List<(string SessionId, SessionLifecycle NewState)>();
 
         lock (_lock)
         {
             if (!_states.TryGetValue(sessionId, out var state))
                 return;
 
-            // Apply events to state
+            ReviveIfTerminal(state, lifecycleChanges);
+
             foreach (var evt in result.Events)
             {
                 ApplyEventToState(state, evt);
             }
 
-            // Update summary and model
             if (result.Summary != null)
                 state.Summary = result.Summary;
 
@@ -215,6 +259,10 @@ public class SessionActivityService : ISessionActivityService
         foreach (var evt in result.Events)
         {
             ActivityEventProcessed?.Invoke(this, evt);
+        }
+        foreach (var lc in lifecycleChanges)
+        {
+            LifecycleChanged?.Invoke(this, lc);
         }
     }
 
@@ -249,10 +297,10 @@ public class SessionActivityService : ISessionActivityService
 
     // Private processing methods (called under lock)
 
-    private List<ActivityEvent> ProcessSessionStart(HookEvent hookEvent)
+    private List<ActivityEvent> ProcessSessionStart(HookEvent hookEvent, List<(string SessionId, SessionLifecycle NewState)> lifecycleChanges)
     {
         var events = new List<ActivityEvent>();
-        var state = GetOrCreateStateLocked(hookEvent.SessionId, hookEvent.Cwd, hookEvent.TranscriptPath,
+        var state = GetOrCreateStateLocked(hookEvent.SessionId, lifecycleChanges, hookEvent.Cwd, hookEvent.TranscriptPath,
             hookEvent.Source, hookEvent.ContainerName);
 
         // No event has happened yet from the agent's POV — leave timestamps null.
@@ -270,10 +318,10 @@ public class SessionActivityService : ISessionActivityService
         return events;
     }
 
-    private List<ActivityEvent> ProcessToolStart(HookEvent hookEvent, HookEventData? rawData)
+    private List<ActivityEvent> ProcessToolStart(HookEvent hookEvent, HookEventData? rawData, List<(string SessionId, SessionLifecycle NewState)> lifecycleChanges)
     {
         var events = new List<ActivityEvent>();
-        var state = GetOrCreateStateLocked(hookEvent.SessionId, hookEvent.Cwd,
+        var state = GetOrCreateStateLocked(hookEvent.SessionId, lifecycleChanges, hookEvent.Cwd,
             source: hookEvent.Source, containerName: hookEvent.ContainerName);
 
         var toolUseId = hookEvent.ToolUseId ?? Guid.NewGuid().ToString();
@@ -333,10 +381,10 @@ public class SessionActivityService : ISessionActivityService
         return events;
     }
 
-    private List<ActivityEvent> ProcessToolEnd(HookEvent hookEvent, HookEventData? rawData)
+    private List<ActivityEvent> ProcessToolEnd(HookEvent hookEvent, HookEventData? rawData, List<(string SessionId, SessionLifecycle NewState)> lifecycleChanges)
     {
         var events = new List<ActivityEvent>();
-        var state = GetOrCreateStateLocked(hookEvent.SessionId, hookEvent.Cwd,
+        var state = GetOrCreateStateLocked(hookEvent.SessionId, lifecycleChanges, hookEvent.Cwd,
             source: hookEvent.Source, containerName: hookEvent.ContainerName);
 
         var toolUseId = hookEvent.ToolUseId ?? "";
@@ -416,7 +464,7 @@ public class SessionActivityService : ISessionActivityService
         return events;
     }
 
-    private List<ActivityEvent> ProcessSessionStop(HookEvent hookEvent)
+    private List<ActivityEvent> ProcessSessionStop(HookEvent hookEvent, List<(string SessionId, SessionLifecycle NewState)> lifecycleChanges)
     {
         var events = new List<ActivityEvent>();
 
@@ -429,7 +477,7 @@ public class SessionActivityService : ISessionActivityService
         if (state.MainAgent != null)
             state.MainAgent.StampStop(hookEvent.Timestamp);
 
-        FinalizeSessionEnd(state, hookEvent.SessionId, "explicit", events);
+        FinalizeSessionEnd(state, hookEvent.SessionId, "explicit", events, lifecycleChanges);
         return events;
     }
 
@@ -439,7 +487,8 @@ public class SessionActivityService : ISessionActivityService
     /// Shared by the synchronous path (ProcessSessionStop) and the deferred path
     /// (ProcessSubagentStop, after the last subagent finishes).
     /// </summary>
-    private void FinalizeSessionEnd(SessionActivityState state, string sessionId, string endReason, List<ActivityEvent> events)
+    private void FinalizeSessionEnd(SessionActivityState state, string sessionId, string endReason, List<ActivityEvent> events,
+        List<(string SessionId, SessionLifecycle NewState)> lifecycleChanges)
     {
         var previousLifecycle = state.Lifecycle;
         state.Lifecycle = DetermineEndStatus(state, endReason);
@@ -460,7 +509,7 @@ public class SessionActivityService : ISessionActivityService
 
         if (previousLifecycle != state.Lifecycle)
         {
-            LifecycleChanged?.Invoke(this, (sessionId, state.Lifecycle));
+            lifecycleChanges.Add((sessionId, state.Lifecycle));
         }
     }
 
@@ -473,21 +522,101 @@ public class SessionActivityService : ISessionActivityService
     /// </summary>
     public static SessionLifecycle DetermineEndStatus(SessionActivityState state, string endReason)
     {
-        return endReason switch
-        {
-            "timeout" => SessionLifecycle.TimedOut,
-            "error" or "crash" => SessionLifecycle.Failed,
-            _ => SessionLifecycle.Completed
-        };
+        if (endReason == "timeout")
+            return SessionLifecycle.TimedOut;
+
+        // Check for errors: tool calls that ended with errors and no subsequent success
+        var hasErrors = state.ToolCalls.Values.Any(t => t.State == ToolCallState.Error);
+        var hasFileWrites = state.FileActivities.Values.Any(f => f.WriteCount > 0);
+        var hasToolCalls = state.ToolCalls.Count > 0;
+
+        // If last tool calls had errors and no file writes produced, mark as Failed
+        if (hasErrors && !hasFileWrites)
+            return SessionLifecycle.Failed;
+
+        // Explicit stop with file writes = successful productive session
+        if (hasFileWrites)
+            return SessionLifecycle.Completed; // Success — has file changes
+
+        // Explicit stop with tool calls but no writes = completed (e.g., research/Q&A)
+        if (hasToolCalls)
+            return SessionLifecycle.Completed;
+
+        // Explicit stop with no activity at all
+        return SessionLifecycle.Completed;
     }
 
-    private List<ActivityEvent> ProcessFileChanged(HookEvent hookEvent)
+    /// <summary>
+    /// Un-sticks a session whose lifecycle was previously marked terminal
+    /// (Completed/Failed/TimedOut) when fresh activity arrives. Claude Code's
+    /// Stop hook fires between every assistant turn — not only at session end — and the
+    /// inactivity tracker can flip a still-running session to TimedOut while a long tool
+    /// produces no transcript writes. Without this revive, the tree would show "Done" or
+    /// "Timed out" forever once either fires, even as new tool calls continue.
+    /// </summary>
+    private void ReviveIfTerminal(SessionActivityState state, List<(string SessionId, SessionLifecycle NewState)> lifecycleChanges)
+    {
+        var verdict = LifecycleDecision.ClassifyArrival(state.Lifecycle);
+        if (!verdict.Revive || verdict.NewLifecycle is not { } newLifecycle)
+            return;
+
+        ApplyLifecycleLocked(state, newLifecycle);
+        lifecycleChanges.Add((state.SessionId, state.Lifecycle));
+    }
+
+    public bool MarkLifecycle(string sessionId, SessionLifecycle newLifecycle)
+    {
+        bool changed = false;
+
+        lock (_lock)
+        {
+            if (!_states.TryGetValue(sessionId, out var state))
+                return false;
+            if (state.Lifecycle == newLifecycle)
+                return false;
+
+            ApplyLifecycleLocked(state, newLifecycle);
+            changed = true;
+        }
+
+        if (changed)
+            LifecycleChanged?.Invoke(this, (sessionId, newLifecycle));
+
+        return changed;
+    }
+
+    private static void ApplyLifecycleLocked(SessionActivityState state, SessionLifecycle newLifecycle)
+    {
+        state.Lifecycle = newLifecycle;
+
+        bool isTerminal = newLifecycle is SessionLifecycle.Completed
+                                       or SessionLifecycle.Failed
+                                       or SessionLifecycle.TimedOut;
+
+        if (isTerminal)
+        {
+            state.EndTime ??= DateTime.UtcNow;
+        }
+        else if (newLifecycle == SessionLifecycle.Active)
+        {
+            state.EndTime = null;
+            if (state.MainAgent is { } main)
+            {
+                main.CompleteTime = null;
+                if (main.State is AgentState.Complete or AgentState.Error)
+                    main.State = AgentState.Active;
+            }
+        }
+    }
+
+    private List<ActivityEvent> ProcessFileChanged(HookEvent hookEvent, List<(string SessionId, SessionLifecycle NewState)> lifecycleChanges)
     {
         var events = new List<ActivityEvent>();
 
         if (!_states.TryGetValue(hookEvent.SessionId, out var state))
             return events;
 
+        ReviveIfTerminal(state, lifecycleChanges);
         if (!string.IsNullOrEmpty(hookEvent.FilePath))
         {
             state.RecordFileAccess(hookEvent.FilePath, "write");
@@ -499,10 +628,10 @@ public class SessionActivityService : ISessionActivityService
         return events;
     }
 
-    private List<ActivityEvent> ProcessToolError(HookEvent hookEvent, HookEventData? rawData)
+    private List<ActivityEvent> ProcessToolError(HookEvent hookEvent, HookEventData? rawData, List<(string SessionId, SessionLifecycle NewState)> lifecycleChanges)
     {
         var events = new List<ActivityEvent>();
-        var state = GetOrCreateStateLocked(hookEvent.SessionId, hookEvent.Cwd,
+        var state = GetOrCreateStateLocked(hookEvent.SessionId, lifecycleChanges, hookEvent.Cwd,
             source: hookEvent.Source, containerName: hookEvent.ContainerName);
 
         var toolUseId = hookEvent.ToolUseId ?? "";
@@ -534,10 +663,10 @@ public class SessionActivityService : ISessionActivityService
         return events;
     }
 
-    private List<ActivityEvent> ProcessSubagentStart(HookEvent hookEvent)
+    private List<ActivityEvent> ProcessSubagentStart(HookEvent hookEvent, List<(string SessionId, SessionLifecycle NewState)> lifecycleChanges)
     {
         var events = new List<ActivityEvent>();
-        var state = GetOrCreateStateLocked(hookEvent.SessionId, hookEvent.Cwd,
+        var state = GetOrCreateStateLocked(hookEvent.SessionId, lifecycleChanges, hookEvent.Cwd,
             source: hookEvent.Source, containerName: hookEvent.ContainerName);
 
         var agentId = hookEvent.AgentId ?? Guid.NewGuid().ToString();
@@ -600,13 +729,14 @@ public class SessionActivityService : ISessionActivityService
         return events;
     }
 
-    private List<ActivityEvent> ProcessSubagentStop(HookEvent hookEvent)
+    private List<ActivityEvent> ProcessSubagentStop(HookEvent hookEvent, List<(string SessionId, SessionLifecycle NewState)> lifecycleChanges)
     {
         var events = new List<ActivityEvent>();
 
         if (!_states.TryGetValue(hookEvent.SessionId, out var state))
             return events;
 
+        ReviveIfTerminal(state, lifecycleChanges);
         var agentId = hookEvent.AgentId ?? "";
 
         if (state.Agents.TryGetValue(agentId, out var stoppedSubagent))
@@ -624,13 +754,14 @@ public class SessionActivityService : ISessionActivityService
         return events;
     }
 
-    private List<ActivityEvent> ProcessAgentMetadataUpdate(HookEvent hookEvent)
+    private List<ActivityEvent> ProcessAgentMetadataUpdate(HookEvent hookEvent, List<(string SessionId, SessionLifecycle NewState)> lifecycleChanges)
     {
         var events = new List<ActivityEvent>();
 
         if (!_states.TryGetValue(hookEvent.SessionId, out var state))
             return events;
 
+        ReviveIfTerminal(state, lifecycleChanges);
         var agentId = hookEvent.AgentId ?? "";
         if (!state.Agents.ContainsKey(agentId))
             return events;
@@ -672,13 +803,14 @@ public class SessionActivityService : ISessionActivityService
         return events;
     }
 
-    private List<ActivityEvent> ProcessAgentDeleted(HookEvent hookEvent)
+    private List<ActivityEvent> ProcessAgentDeleted(HookEvent hookEvent, List<(string SessionId, SessionLifecycle NewState)> lifecycleChanges)
     {
         var events = new List<ActivityEvent>();
 
         if (!_states.TryGetValue(hookEvent.SessionId, out var state))
             return events;
 
+        ReviveIfTerminal(state, lifecycleChanges);
         var agentId = hookEvent.AgentId ?? "";
         if (!state.Agents.ContainsKey(agentId))
             return events;
@@ -691,13 +823,14 @@ public class SessionActivityService : ISessionActivityService
         return events;
     }
 
-    private List<ActivityEvent> ProcessNotification(HookEvent hookEvent)
+    private List<ActivityEvent> ProcessNotification(HookEvent hookEvent, List<(string SessionId, SessionLifecycle NewState)> lifecycleChanges)
     {
         var events = new List<ActivityEvent>();
 
         if (!_states.TryGetValue(hookEvent.SessionId, out var state))
             return events;
 
+        ReviveIfTerminal(state, lifecycleChanges);
         state.LastActivityTime = DateTime.UtcNow;
 
         // Permission prompts transition the agent to WaitingPermission state
@@ -732,7 +865,7 @@ public class SessionActivityService : ISessionActivityService
 
             if (previousLifecycle != state.Lifecycle)
             {
-                LifecycleChanged?.Invoke(this, (hookEvent.SessionId, state.Lifecycle));
+                lifecycleChanges.Add((hookEvent.SessionId, state.Lifecycle));
             }
         }
 
@@ -750,7 +883,8 @@ public class SessionActivityService : ISessionActivityService
 
     // Helpers
 
-    private SessionActivityState GetOrCreateStateLocked(string sessionId, string? cwd = null, string? transcriptPath = null,
+    private SessionActivityState GetOrCreateStateLocked(string sessionId, List<(string SessionId, SessionLifecycle NewState)> lifecycleChanges,
+        string? cwd = null, string? transcriptPath = null,
         SessionSource source = SessionSource.Local, string? containerName = null)
     {
         if (_states.TryGetValue(sessionId, out var existing))
@@ -761,6 +895,7 @@ public class SessionActivityService : ISessionActivityService
             if (source != SessionSource.Local) existing.Source = source;
             if (containerName != null) existing.ContainerName = containerName;
             existing.LastActivityTime = DateTime.UtcNow;
+            ReviveIfTerminal(existing, lifecycleChanges);
             return existing;
         }
 

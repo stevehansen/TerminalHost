@@ -24,6 +24,7 @@ internal sealed class AvaloniaSystemInfoDecorator : ISystemInfoService
     public string GetUserHomePath() => _inner.GetUserHomePath();
     public string GetTempPath() => _inner.GetTempPath();
     public string GetDefaultShell() => _inner.GetDefaultShell();
+    public string GetDefaultCustomCommand() => _inner.GetDefaultCustomCommand();
 
     public IEnumerable<string> GetInstalledFontFamilies()
         => FontManager.Current.SystemFonts.Select(f => f.Name);

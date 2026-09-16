@@ -6,7 +6,7 @@
              xmlns:local="clr-namespace:TerminalHost"
              xmlns:vm="clr-namespace:TerminalHost.ViewModels"
              mc:Ignorable="d" 
-             d:DataContext="{d:DesignInstance vm:MainViewModel}"
+             d:DataContext="{d:DesignInstance vm:TabDropdownViewModel}"
              d:DesignHeight="300" d:DesignWidth="200"
              PreviewKeyDown="UserControl_PreviewKeyDown">
     

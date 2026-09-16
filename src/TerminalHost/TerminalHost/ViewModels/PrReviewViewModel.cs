@@ -13,8 +13,17 @@ namespace TerminalHost.ViewModels;
 /// <summary>
 /// ViewModel for the PR Review Mode popup (Ctrl+Shift+R).
 /// </summary>
-public partial class PrReviewViewModel : BasePanelViewModel
+public partial class PrReviewViewModel : BasePanelViewModel, IPanelPlacement, IPanelOpenContext
 {
+    public PanelZone PreferredZone => PanelZone.Center;
+
+    public Task OnOpenedAsync(object? context)
+    {
+        if (context is TerminalPairTabViewModel tab)
+            return OpenAsync(tab.WorkingDirectory);
+        return Task.CompletedTask;
+    }
+
     private readonly IGitHubService _gitHubService;
     private readonly IDialogService _dialogService;
     private readonly ITestRunnerService _testRunnerService;

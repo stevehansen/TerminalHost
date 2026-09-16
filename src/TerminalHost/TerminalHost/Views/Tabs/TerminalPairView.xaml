@@ -29,7 +29,9 @@
                                       Command="{Binding SetCustomFullLayoutCommand}"
                                       ToolTip="Custom terminal only (full view)"
                                       AutomationProperties.AutomationId="CustomFullLayoutButton"
-                                      Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}">
+                                      Width="{StaticResource ToolbarButtonFull}"
+                                      Height="{StaticResource ToolbarButtonFull}"
+                                      Padding="0">
                             <ToggleButton.Style>
                                 <Style TargetType="ToggleButton">
                                     <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
@@ -67,7 +69,9 @@
                                       Command="{Binding SetHorizontalSplitLayoutCommand}"
                                       ToolTip="Horizontal split (side by side)"
                                       AutomationProperties.AutomationId="HorizontalSplitLayoutButton"
-                                      Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}">
+                                      Width="{StaticResource ToolbarButtonFull}"
+                                      Height="{StaticResource ToolbarButtonFull}"
+                                      Padding="0">
                             <ToggleButton.Style>
                                 <Style TargetType="ToggleButton">
                                     <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
@@ -106,7 +110,9 @@
                                       ToolTip="Vertical split (stacked)"
                                       AutomationProperties.AutomationId="VerticalSplitLayoutButton"
                                       Margin="0,0,8,0"
-                                      Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}">
+                                      Width="{StaticResource ToolbarButtonFull}"
+                                      Height="{StaticResource ToolbarButtonFull}"
+                                      Padding="0">
                             <ToggleButton.Style>
                                 <Style TargetType="ToggleButton">
                                     <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
@@ -170,15 +176,19 @@
                             Style="{StaticResource TerminalSwitchButton}"
                             Command="{Binding GitPullCommand}"
                             Visibility="{Binding GitStatus.IsGitRepository, Converter={StaticResource BoolToVisibilityConverter}}"
-                            Padding="6,2" Margin="8,0,2,0"/>
+                            Width="{Binding GitPullButtonText, Converter={StaticResource ToolbarGlyphToWidthConverter}, ConverterParameter='28|21'}"
+                            Height="{StaticResource ToolbarButtonFull}"
+                            Padding="0" Margin="8,0,2,0"/>
                     <Button Content="{Binding GitPushButtonText}" ToolTip="Git Push (Ctrl+Shift+U)" AutomationProperties.Name="Git Push"
                             Style="{StaticResource TerminalSwitchButton}"
                             Command="{Binding GitPushCommand}"
                             Visibility="{Binding GitStatus.IsGitRepository, Converter={StaticResource BoolToVisibilityConverter}}"
-                            Padding="6,2" Margin="0,0,4,0"/>
+                            Width="{Binding GitPushButtonText, Converter={StaticResource ToolbarGlyphToWidthConverter}, ConverterParameter='28|21'}"
+                            Height="{StaticResource ToolbarButtonFull}"
+                            Padding="0" Margin="0,0,4,0"/>
 
                     <!-- Quick Commands Separator -->
-                    <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="16,2,8,2"/>
+                    <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="8,2,8,2"/>
 
                     <!-- Built-in Quick Commands -->
                     <Button x:Name="DetectedLinksButton"
@@ -200,35 +210,31 @@
                     <Button Content="📁"
                             ToolTip="Open in Explorer (Ctrl+E)"
                             AutomationProperties.Name="Open in Explorer"
-                            Style="{StaticResource TerminalSwitchButton}"
+                            Style="{StaticResource ToolbarIconButton}"
                             Command="{Binding DataContext.OpenInExplorerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                            Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}"
                             Margin="0,0,4,0"/>
                     <Button Content="📝"
                             ToolTip="Scratch Pad (Ctrl+Shift+N)"
                             AutomationProperties.Name="Scratch Pad"
-                            Style="{StaticResource TerminalSwitchButton}"
+                            Style="{StaticResource ToolbarIconButton}"
                             Command="{Binding DataContext.OpenScratchPadCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                            Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}"
                             Margin="0,0,4,0"
                             Visibility="Collapsed"/>
                     <Button Content="📋"
                             ToolTip="Git Panel (Alt+G)"
                             AutomationProperties.Name="Git Panel"
-                            Style="{StaticResource TerminalSwitchButton}"
+                            Style="{StaticResource ToolbarIconButton}"
                             Command="{Binding DataContext.OpenGitPanelFromToolbarCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                            Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}"
                             Margin="0,0,4,0"/>
                     <Button Content="❓"
                             ToolTip="Help &amp; Shortcuts (F1)"
                             AutomationProperties.Name="Help"
-                            Style="{StaticResource TerminalSwitchButton}"
+                            Style="{StaticResource ToolbarIconButton}"
                             Command="{Binding DataContext.OpenHelpCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                            Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}"
                             Margin="0,0,4,0"/>
 
                     <!-- Run Controls Separator -->
-                    <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="4,2,8,2"
+                    <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="8,2,8,2"
                             Visibility="{Binding HasAnyRunConfiguration, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                     <!-- Run State Indicator (colored dot) -->
@@ -242,9 +248,8 @@
                     <Button Content="{Binding RunState, Converter={StaticResource RunStateToIconConverter}}"
                             ToolTip="{Binding RunState, Converter={StaticResource RunStateToTooltipConverter}}"
                             AutomationProperties.Name="Toggle Project Run"
-                            Style="{StaticResource TerminalSwitchButton}"
+                            Style="{StaticResource ToolbarIconButton}"
                             Command="{Binding ToggleRunCommand}"
-                            Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}"
                             Margin="0,0,4,0"
                             Visibility="{Binding HasAnyRunConfiguration, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
@@ -284,11 +289,65 @@
 
                     <!-- Toggle Run Terminal Visibility -->
                     <ToggleButton IsChecked="{Binding IsRunTerminalVisible}"
-                                  Content="▶"
                                   ToolTip="Show/Hide Run Terminal"
                                   AutomationProperties.Name="Toggle Run Terminal Visibility"
                                   Margin="0,0,4,0"
+                                  Width="{StaticResource ToolbarButtonFull}"
+                                  Height="{StaticResource ToolbarButtonFull}"
+                                  Padding="0"
                                   Visibility="{Binding HasAnyRunConfiguration, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <ToggleButton.Style>
+                            <Style TargetType="ToggleButton">
+                                <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                                <Setter Property="FontSize" Value="{StaticResource FontSizeTiny}"/>
+                                <Setter Property="Padding" Value="8,4"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border Background="{TemplateBinding Background}"
+                                                    CornerRadius="3"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
+                                        <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ToggleButton.Style>
+                        <!-- Run-terminal glyph: a play triangle inside a screen (follows the button foreground). -->
+                        <Viewbox Width="16" Height="16">
+                            <Grid Width="20" Height="20">
+                                <Border Width="20" Height="15" VerticalAlignment="Center" CornerRadius="2.5"
+                                        BorderThickness="2"
+                                        BorderBrush="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+                                <Path Data="M0,0 L6,4 L0,8 Z" Stretch="Uniform" Width="6.5" Height="8"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center" Margin="1,0,0,0"
+                                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+                            </Grid>
+                        </Viewbox>
+                    </ToggleButton>
+
+                    <!-- Toggle Sessions Panel (global) -->
+                    <ToggleButton IsChecked="{Binding DataContext.ShowSessionsPanel, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}"
+                                  Content="⚡"
+                                  ToolTip="Sessions Panel (Ctrl+Shift+A)"
+                                  AutomationProperties.Name="Toggle Sessions Panel"
+                                  Margin="0,0,4,0"
+                                  Width="{StaticResource ToolbarButtonFull}"
+                                  Height="{StaticResource ToolbarButtonFull}"
+                                  Padding="0">
                         <ToggleButton.Style>
                             <Style TargetType="ToggleButton">
                                 <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
@@ -322,11 +381,15 @@
                     </ToggleButton>
 
                     <!-- Toggle Explorer Visibility -->
-                    <ToggleButton IsChecked="{Binding IsExplorerVisible}"
+                    <ToggleButton IsChecked="{Binding IsExplorerVisible, Mode=OneWay}"
+                                  Command="{Binding ToggleExplorerCommand}"
                                   Content="📂"
                                   ToolTip="File Explorer (Ctrl+Shift+F)"
                                   AutomationProperties.Name="Toggle File Explorer"
-                                  Margin="0,0,8,0">
+                                  Margin="0,0,4,0"
+                                  Width="{StaticResource ToolbarButtonFull}"
+                                  Height="{StaticResource ToolbarButtonFull}"
+                                  Padding="0">
                         <ToggleButton.Style>
                             <Style TargetType="ToggleButton">
                                 <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
@@ -360,7 +423,7 @@
                     </ToggleButton>
 
                     <!-- Separator between built-in and user commands -->
-                    <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,2,8,2"
+                    <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="8,2,8,2"
                             Visibility="{Binding DataContext.QuickCommands.Count, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource CountToVisibilityConverter}}"/>
 
                     <!-- User Quick Commands -->
@@ -377,6 +440,9 @@
                                         Style="{StaticResource TerminalSwitchButton}"
                                         Command="{Binding DataContext.ExecuteQuickCommandCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                         CommandParameter="{Binding}"
+                                        Width="{Binding DisplayText, Converter={StaticResource ToolbarGlyphToWidthConverter}, ConverterParameter='28|21'}"
+                                        Height="{StaticResource ToolbarButtonFull}"
+                                        Padding="0"
                                         Margin="0,0,4,0"/>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
@@ -385,19 +451,12 @@
             </DockPanel>
         </Border>
 
-        <!-- Terminal Content Area - Outer grid for Explorer only -->
+        <!-- Terminal Content Area - center-content switcher only. The right dock (Explorer +
+             global Sessions) is hoisted to the main window so a single dock spans all tabs. -->
         <Grid Grid.Row="1" Background="{StaticResource BackgroundDarkestBrush}">
-            <Grid.ColumnDefinitions>
-                <!-- Main content area (terminals + run OR center panel) -->
-                <ColumnDefinition Width="{Binding MainContentColumnWidth}"/>
-                <!-- Explorer splitter column (hidden when explorer not visible) -->
-                <ColumnDefinition Width="{Binding ExplorerSplitterWidth}"/>
-                <!-- Explorer column (hidden when not visible) -->
-                <ColumnDefinition Width="{Binding ExplorerColumnWidth}"/>
-            </Grid.ColumnDefinitions>
 
-            <!-- Center Content Switcher (Column 0) -->
-            <Grid Grid.Column="0">
+            <!-- Center Content Switcher -->
+            <Grid>
 
                 <!-- Terminal Pair (visible when no center panel) -->
                 <Grid x:Name="MainContentGrid"
@@ -540,7 +599,7 @@
                                     ToolTip="Back to Terminals (Escape)"/>
                             <Button DockPanel.Dock="Right" Content="&#x29C9;"
                                     Style="{StaticResource TabCloseButton}"
-                                    Click="PopOutCenterPanel_Click"
+                                    Command="{Binding ActiveCenterPanel.DetachCommand}"
                                     ToolTip="Pop out to window"
                                     FontSize="12"
                                     Margin="0,0,4,0"/>
@@ -565,19 +624,6 @@
 
             </Grid>
             <!-- End of Center Content Switcher -->
-
-            <!-- Explorer Splitter (Column 1 of outer grid) - only visible when explorer is visible -->
-            <GridSplitter x:Name="ExplorerSplitter" Grid.Column="1" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"
-                          Visibility="{Binding IsExplorerVisible, Converter={StaticResource BoolToVisibilityConverter}}"
-                          DragCompleted="ExplorerSplitter_DragCompleted"/>
-
-            <!-- Right Panel Host (Column 2 of outer grid) - contains Explorer + other docked panels -->
-            <controls:PanelHost x:Name="RightPanelHost"
-                                Grid.Column="2"
-                                Panels="{Binding RightPanels}"
-                                ActivePanel="{Binding ActiveRightPanel, Mode=TwoWay}"
-                                Side="Right"
-                                Visibility="{Binding IsExplorerVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
         </Grid>
 
     </Grid>

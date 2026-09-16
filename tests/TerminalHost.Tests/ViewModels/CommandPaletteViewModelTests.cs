@@ -97,24 +97,6 @@ public class CommandPaletteViewModelTests
         h.Dispatcher.Verify(d => d.BeginInvoke(It.IsAny<Action>()), Times.Once);
     }
 
-    [Fact]
-    public void Dispose_UnsubscribesFromCommandsChanged()
-    {
-        var h = new Harness();
-        h.StubFilter();
-        var vm = h.Build();
-
-        // Raise once before dispose to confirm wiring works
-        h.ClaudeService.Raise(c => c.CommandsChanged += null, EventArgs.Empty);
-        h.Dispatcher.Verify(d => d.BeginInvoke(It.IsAny<Action>()), Times.Exactly(1));
-
-        vm.Dispose();
-
-        // Raise after dispose — should NOT trigger refilter
-        h.ClaudeService.Raise(c => c.CommandsChanged += null, EventArgs.Empty);
-        h.Dispatcher.Verify(d => d.BeginInvoke(It.IsAny<Action>()), Times.Exactly(1));
-    }
-
     // -------- Refilter --------
 
     [Fact]

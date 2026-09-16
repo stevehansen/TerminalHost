@@ -6,7 +6,7 @@ namespace TerminalHost.Services;
 public interface IViewModelFactory
 {
     FileExplorerViewModel CreateFileExplorer(string rootPath);
-    FileViewerViewModel CreateFileViewer(bool isDetached = false);
+    FileViewerViewModel CreateFileViewer();
     DashboardTabViewModel CreateDashboard(MainViewModel parent);
     WorkspaceSidebarViewModel CreateWorkspaceSidebar();
     SettingsTabViewModel CreateSettings();

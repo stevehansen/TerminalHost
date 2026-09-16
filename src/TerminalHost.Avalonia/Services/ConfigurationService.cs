@@ -11,15 +11,17 @@ namespace TerminalHost.Services;
 internal sealed class ConfigurationService : IConfigurationService
 {
     private readonly IFileSystem _fileSystem;
+    private readonly ISystemInfoService _systemInfoService;
     private readonly JsonFileService<AppConfiguration> _jsonFileService;
     private static readonly object _saveLock = new object();
 
     public string ConfigurationFilePath { get; }
     private readonly string _configDirectory;
 
-    public ConfigurationService(IFileSystem fileSystem, string? userDataDir = null)
+    public ConfigurationService(IFileSystem fileSystem, ISystemInfoService systemInfoService, string? userDataDir = null)
     {
         _fileSystem = fileSystem;
+        _systemInfoService = systemInfoService;
 
         if (!string.IsNullOrEmpty(userDataDir))
         {
@@ -27,9 +29,7 @@ internal sealed class ConfigurationService : IConfigurationService
         }
         else
         {
-            // macOS: ~/Library/Application Support/TerminalHost
-            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            _configDirectory = Path.Combine(home, "Library", "Application Support", "TerminalHost");
+            _configDirectory = systemInfoService.GetApplicationDataPath();
         }
 
         ConfigurationFilePath = Path.Combine(_configDirectory, "config.json");
@@ -59,7 +59,7 @@ internal sealed class ConfigurationService : IConfigurationService
             config.Settings.ShellCommand.Equals("pwsh.exe", StringComparison.OrdinalIgnoreCase) ||
             config.Settings.ShellCommand.Equals("powershell.exe", StringComparison.OrdinalIgnoreCase))
         {
-            var defaultShell = GetDefaultShell();
+            var defaultShell = _systemInfoService.GetDefaultShell();
             config.Settings.ShellCommand = defaultShell;
             config.Settings.ShellCommandName = Path.GetFileName(defaultShell) switch
             {
@@ -76,7 +76,7 @@ internal sealed class ConfigurationService : IConfigurationService
             config.Settings.CustomCommand.Contains("USERPROFILE") ||
             config.Settings.CustomCommand.Contains("claude.exe"))
         {
-            config.Settings.CustomCommand = GetDefaultClaudeCommand();
+            config.Settings.CustomCommand = _systemInfoService.GetDefaultCustomCommand();
             needsSave = true;
         }
 
@@ -91,7 +91,7 @@ internal sealed class ConfigurationService : IConfigurationService
                     // Replace Windows path with macOS-appropriate command
                     if (assistant.Id == "claude" || assistant.Command.Contains("claude"))
                     {
-                        assistant.Command = GetDefaultClaudeCommand();
+                        assistant.Command = _systemInfoService.GetDefaultCustomCommand();
                         needsSave = true;
                     }
                     else if (assistant.Command.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
@@ -328,7 +328,7 @@ internal sealed class ConfigurationService : IConfigurationService
         return false;
     }
 
-    private static AppConfiguration CreateDefaultConfiguration()
+    private AppConfiguration CreateDefaultConfiguration()
     {
         var config = new AppConfiguration
         {
@@ -347,9 +347,9 @@ internal sealed class ConfigurationService : IConfigurationService
     }
 
     // Helper method to create a default shell profile
-    private static Profile CreateDefaultShellProfile()
+    private Profile CreateDefaultShellProfile()
     {
-        var shell = GetDefaultShell();
+        var shell = _systemInfoService.GetDefaultShell();
         var shellName = Path.GetFileName(shell) switch
         {
             "zsh" => "Zsh",
@@ -369,40 +369,4 @@ internal sealed class ConfigurationService : IConfigurationService
         };
     }
 
-    private static string GetDefaultShell()
-    {
-        // Check for environment variable first
-        var shell = Environment.GetEnvironmentVariable("SHELL");
-        if (!string.IsNullOrEmpty(shell) && File.Exists(shell))
-            return shell;
-
-        // macOS defaults
-        if (File.Exists("/bin/zsh")) return "/bin/zsh";
-        if (File.Exists("/bin/bash")) return "/bin/bash";
-
-        return "/bin/sh";
-    }
-
-    private static string GetDefaultClaudeCommand()
-    {
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-
-        // Check common macOS Claude installation locations
-        var possiblePaths = new[]
-        {
-            Path.Combine(home, ".claude", "local", "claude"),
-            Path.Combine(home, ".local", "bin", "claude"),
-            "/usr/local/bin/claude",
-            "/opt/homebrew/bin/claude",
-        };
-
-        foreach (var path in possiblePaths)
-        {
-            if (File.Exists(path))
-                return path;
-        }
-
-        // Default to just "claude" - assume it's in PATH
-        return "claude";
-    }
 }

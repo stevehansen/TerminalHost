@@ -700,40 +700,60 @@ namespace VtNetCore.XTermParser
                 Handler = (sequence, controller) =>
                 {
                     var csiSequence = sequence as CsiSequence;
-                    if(csiSequence.Parameters.Count == 0)
-                        controller.SetCharacterAttribute(0);
-                    else if(csiSequence.Parameters[0] == 38 || csiSequence.Parameters[0] == 48)
+                    if (csiSequence.Parameters.Count == 0)
                     {
-                        if(csiSequence.Parameters.Count == 6 && csiSequence.Parameters[1] == 2)
+                        controller.SetCharacterAttribute(0);
+                        return;
+                    }
+
+                    // SGR parameters can chain extended-color sub-sequences with regular
+                    // attributes in the same CSI, e.g. \x1b[38;2;R;G;B;49m. Walk the list
+                    // and consume each sub-sequence rather than dispatching purely on Count.
+                    var parameters = csiSequence.Parameters;
+                    int i = 0;
+                    while (i < parameters.Count)
+                    {
+                        var p = parameters[i];
+                        if (p == 38 || p == 48)
                         {
-                            // XTerm iRGB
-                            if(csiSequence.Parameters[0] == 38)
-                                controller.SetRgbForegroundColor(csiSequence.Parameters[3], csiSequence.Parameters[4], csiSequence.Parameters[5]);
+                            if (i + 1 >= parameters.Count) { i++; continue; }
+                            var subtype = parameters[i + 1];
+                            if (subtype == 2 && i + 4 < parameters.Count)
+                            {
+                                // xterm/Konsole 24-bit RGB: 38;2;R;G;B (consumes 5 params).
+                                // The ISO-8613-6 6-param iRGB form (38;2;CS;R;G;B) is only
+                                // produced by colon-separated sub-parameters, which our parser
+                                // doesn't emit through this path.
+                                var r = parameters[i + 2];
+                                var g = parameters[i + 3];
+                                var b = parameters[i + 4];
+                                if (p == 38)
+                                    controller.SetRgbForegroundColor(r, g, b);
+                                else
+                                    controller.SetRgbBackgroundColor(r, g, b);
+                                i += 5;
+                            }
+                            else if (subtype == 5 && i + 2 < parameters.Count)
+                            {
+                                // 256-color indexed: 38;5;N (consumes 3 params)
+                                var n = parameters[i + 2];
+                                if (p == 38)
+                                    controller.SetIso8613PaletteForeground(n);
+                                else
+                                    controller.SetIso8613PaletteBackground(n);
+                                i += 3;
+                            }
                             else
-                                controller.SetRgbBackgroundColor(csiSequence.Parameters[3], csiSequence.Parameters[4], csiSequence.Parameters[5]);
-                        }
-                        else if(csiSequence.Parameters.Count == 5 && csiSequence.Parameters[1] == 2)
-                        {
-                            // Konsole RGB
-                            if(csiSequence.Parameters[0] == 38)
-                                controller.SetRgbForegroundColor(csiSequence.Parameters[2], csiSequence.Parameters[3], csiSequence.Parameters[4]);
-                            else
-                                controller.SetRgbBackgroundColor(csiSequence.Parameters[2], csiSequence.Parameters[3], csiSequence.Parameters[4]);
-                        }
-                        else if(csiSequence.Parameters.Count == 3 && csiSequence.Parameters[1] == 5)
-                        {
-                            if(csiSequence.Parameters[0] == 38)
-                                controller.SetIso8613PaletteForeground(csiSequence.Parameters[2]);
-                            else
-                                controller.SetIso8613PaletteBackground(csiSequence.Parameters[2]);
+                            {
+                                System.Diagnostics.Debug.WriteLine("SGR " + p.ToString() + " has malformed or unsupported sub-sequence");
+                                i = parameters.Count;
+                            }
                         }
                         else
-                            System.Diagnostics.Debug.WriteLine("SGR " + csiSequence.Parameters[0].ToString() + " must be longer than 1 option");
-                    }
-                    else
-                    {
-                        foreach(var parameter in csiSequence.Parameters)
-                            controller.SetCharacterAttribute(parameter);
+                        {
+                            controller.SetCharacterAttribute(p);
+                            i++;
+                        }
                     }
                 }
             },

@@ -46,13 +46,13 @@ public class SparkCanvasOrchestratorTests
     }
 
     private static (SparkCanvasOrchestrator orch, InMemoryCanvasTransport transport, FakeSessionCatalog catalog,
-        InMemoryThemeStore theme, FakeSessionActivityService activity)
+        InMemoryThemeStore theme, FakeSessionLifecycleCoordinator activity)
         BuildSut(params (string id, LiveSessionSnapshot snap)[] sessions)
     {
         var catalog = new FakeSessionCatalog();
         foreach (var (id, snap) in sessions) catalog.With(id, snap);
         var theme = new InMemoryThemeStore("holographic");
-        var activity = new FakeSessionActivityService();
+        var activity = new FakeSessionLifecycleCoordinator();
         var composer = new SparkPayloadComposer(catalog);
         var orch = new SparkCanvasOrchestrator(catalog, composer, activity, theme);
         var transport = new InMemoryCanvasTransport();
@@ -147,7 +147,7 @@ public class SparkCanvasOrchestratorTests
         var catalog = new FakeSessionCatalog()
             .WithReplay("/tmp/x.jsonl", new ReplayLoadResult(replaySnap, new List<EventPayload>()));
         var theme = new InMemoryThemeStore();
-        var activity = new FakeSessionActivityService();
+        var activity = new FakeSessionLifecycleCoordinator();
         var composer = new SparkPayloadComposer(catalog);
         var orch = new SparkCanvasOrchestrator(catalog, composer, activity, theme);
         var transport = new InMemoryCanvasTransport();
@@ -175,7 +175,7 @@ public class SparkCanvasOrchestratorTests
             .With("s1", Snap("s1"))
             .WithReplay("/tmp/x.jsonl", new ReplayLoadResult(replaySnap, new List<EventPayload>()));
         var theme = new InMemoryThemeStore();
-        var activity = new FakeSessionActivityService();
+        var activity = new FakeSessionLifecycleCoordinator();
         var composer = new SparkPayloadComposer(catalog);
         var orch = new SparkCanvasOrchestrator(catalog, composer, activity, theme);
         var transport = new InMemoryCanvasTransport();
@@ -233,7 +233,7 @@ public class SparkCanvasOrchestratorTests
         var catalog = new FakeSessionCatalog()
             .WithReplay("/tmp/x.jsonl", new ReplayLoadResult(replaySnap, new List<EventPayload>()));
         var theme = new InMemoryThemeStore();
-        var activity = new FakeSessionActivityService();
+        var activity = new FakeSessionLifecycleCoordinator();
         var composer = new SparkPayloadComposer(catalog);
         var orch = new SparkCanvasOrchestrator(catalog, composer, activity, theme);
         var transport = new InMemoryCanvasTransport();
@@ -355,7 +355,7 @@ public class SparkCanvasOrchestratorTests
         var snapNoModel = Snap("s1", "Active", model: null);
         var catalog = new FakeSessionCatalog().With("s1", snapNoModel);
         var theme = new InMemoryThemeStore();
-        var activity = new FakeSessionActivityService();
+        var activity = new FakeSessionLifecycleCoordinator();
         var composer = new SparkPayloadComposer(catalog);
         var orch = new SparkCanvasOrchestrator(catalog, composer, activity, theme);
         var transport = new InMemoryCanvasTransport();

@@ -3,6 +3,9 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:system="clr-namespace:System;assembly=mscorlib"
              xmlns:local="clr-namespace:TerminalHost"
+             xmlns:vm="clr-namespace:TerminalHost.ViewModels"
+             xmlns:corevm="clr-namespace:TerminalHost.Core.ViewModels;assembly=TerminalHost.Core"
+             xmlns:popups="clr-namespace:TerminalHost.Views.Popups"
              Startup="OnStartup"
              Exit="OnExit">
     <Application.Resources>
@@ -11,6 +14,20 @@
                 <ResourceDictionary Source="Resources/TabContentTemplates.xaml"/>
                 <ResourceDictionary Source="Resources/PanelContentTemplates.xaml"/>
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- Routed Panel Templates (Phase 1: Popup zone) -->
+            <DataTemplate DataType="{x:Type vm:HelpViewModel}">
+                <popups:HelpView/>
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:TabSwitcherViewModel}">
+                <popups:TabSwitcherView/>
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:TabDropdownViewModel}">
+                <popups:TabDropdownView/>
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type corevm:CommandPaletteViewModel}">
+                <popups:CommandPaletteView/>
+            </DataTemplate>
 
             <!-- Converters -->
         <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
@@ -51,6 +68,7 @@
         <local:TouchModeToDoubleConverter x:Key="TouchModeToDoubleConverter"/>
         <local:TouchModeToMarginConverter x:Key="TouchModeToMarginConverter"/>
         <local:TouchModeToGridLengthConverter x:Key="TouchModeToGridLengthConverter"/>
+        <local:ToolbarGlyphToWidthConverter x:Key="ToolbarGlyphToWidthConverter"/>
 
         <!-- ═══════════════════════════════════════════════════════════════ -->
         <!-- COLOR PALETTE - All colors should be defined here               -->
@@ -121,6 +139,10 @@
         <system:Double x:Key="FontSizeLarge">16</system:Double>
         <system:Double x:Key="FontSizeHeader">20</system:Double>
         <system:Double x:Key="FontSizeTitle">24</system:Double>
+
+        <!-- Toolbar icon-button sizing: full = square, narrow = thin glyphs (arrows, letters). Narrow = 3/4 of full. -->
+        <system:Double x:Key="ToolbarButtonFull">28</system:Double>
+        <system:Double x:Key="ToolbarButtonNarrow">21</system:Double>
 
         <!-- Font Weights -->
         <FontWeight x:Key="FontWeightNormal">Normal</FontWeight>
@@ -435,6 +457,20 @@
                     <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
                 </Trigger>
             </Style.Triggers>
+        </Style>
+
+        <!-- Fixed-size toolbar icon buttons: full = square, narrow = thin (arrow/letter) glyphs.
+             Padding is zeroed so the glyph centres inside the fixed box instead of widening it. -->
+        <Style x:Key="ToolbarIconButton" TargetType="Button" BasedOn="{StaticResource TerminalSwitchButton}">
+            <Setter Property="Width" Value="{StaticResource ToolbarButtonFull}"/>
+            <Setter Property="Height" Value="{StaticResource ToolbarButtonFull}"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+
+        <Style x:Key="ToolbarIconButtonNarrow" TargetType="Button" BasedOn="{StaticResource TerminalSwitchButton}">
+            <Setter Property="Width" Value="{StaticResource ToolbarButtonNarrow}"/>
+            <Setter Property="Height" Value="{StaticResource ToolbarButtonFull}"/>
+            <Setter Property="Padding" Value="0"/>
         </Style>
 
         <!-- Active Terminal Button Style -->

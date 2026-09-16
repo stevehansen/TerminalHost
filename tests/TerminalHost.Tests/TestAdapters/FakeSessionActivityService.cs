@@ -32,6 +32,7 @@ public sealed class FakeSessionActivityService : ISessionActivityService
         SessionSource source = SessionSource.Local, string? containerName = null) =>
         SessionActivityState.Create(sessionId);
     public void RemoveState(string sessionId) { }
+    public bool RecordTerminalTitleActivity(string workingDirectory, string title, DateTime timestampUtc) => false;
     public void ProcessHookEvent(HookEvent hookEvent, HookEventData? rawData = null) { }
     public Task EnrichFromTranscriptAsync(string sessionId)
     {
@@ -39,6 +40,7 @@ public sealed class FakeSessionActivityService : ISessionActivityService
         return Task.CompletedTask;
     }
     public void ProcessTranscriptEvents(string sessionId, IReadOnlyList<ActivityEvent> events, string? summary = null, string? model = null) { }
+    public bool MarkLifecycle(string sessionId, SessionLifecycle newLifecycle) => false;
     public (int Total, int FileReads, int FileWrites, int ShellCommands, int Subagents) GetToolCallStats(string sessionId) => (0, 0, 0, 0, 0);
     public IReadOnlyList<FileActivity> GetTopFiles(string sessionId, int count = 10) => Array.Empty<FileActivity>();
 }

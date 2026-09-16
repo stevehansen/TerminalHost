@@ -41,6 +41,12 @@ public sealed class WindowsSystemInfoService : ISystemInfoService
         return "cmd.exe";
     }
 
+    public string GetDefaultCustomCommand()
+    {
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        return Path.Combine(home, ".local", "bin", "claude.exe");
+    }
+
     public IEnumerable<string> GetInstalledFontFamilies()
     {
         using var fonts = new InstalledFontCollection();

@@ -36,7 +36,7 @@ public partial class TabDropdownView : UserControl
 
     private void UserControl_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (DataContext is not MainViewModel mainViewModel) return;
+        if (DataContext is not TabDropdownViewModel vm) return;
 
         if (e.Key == Key.Down)
         {
@@ -63,33 +63,26 @@ public partial class TabDropdownView : UserControl
         }
         else if (e.Key == Key.Escape)
         {
-            mainViewModel.IsTabDropdownOpen = false;
+            vm.CloseCommand.Execute(null);
             e.Handled = true;
         }
     }
 
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
-        if (DataContext is MainViewModel mainViewModel)
-        {
-            mainViewModel.IsTabDropdownOpen = false;
-        }
+        if (DataContext is TabDropdownViewModel vm)
+            vm.CloseCommand.Execute(null);
     }
 
     private void DropdownTabList_MouseUp(object sender, MouseButtonEventArgs e)
     {
-        // Single click to select
         SelectDropdownItem();
     }
 
     private void SelectDropdownItem()
     {
-        if (DataContext is not MainViewModel mainViewModel) return;
-
+        if (DataContext is not TabDropdownViewModel vm) return;
         if (DropdownTabList.SelectedItem is ITabViewModel tab)
-        {
-            mainViewModel.SelectedTab = tab;
-            mainViewModel.IsTabDropdownOpen = false;
-        }
+            vm.SelectTab(tab);
     }
 }
