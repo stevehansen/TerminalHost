@@ -1,4 +1,4 @@
-using TerminalHost.Core.Interfaces;
+﻿using TerminalHost.Core.Interfaces;
 using TerminalHost.Core.Services;
 using TerminalHost.Core.ViewModels;
 using TerminalHost.Domain;
@@ -16,7 +16,14 @@ public partial class HelpViewModel : BasePanelViewModel
     public override string PanelIcon => "❓";
     public override PanelSizePreset SizePreset => PanelSizePreset.Large;
 
-    public string VersionString => _mainViewModel.VersionString;
+    private readonly IVersionService _versionService;
+
+    public HelpViewModel(IVersionService versionService)
+    {
+        _versionService = versionService;
+    }
+
+    public string VersionString => $"TerminalHost v{_versionService.InformationalVersion}";
 
     #region Keyboard Shortcuts
 
