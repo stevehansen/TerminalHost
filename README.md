@@ -10,8 +10,46 @@ It's designed for developers who work with AI coding assistants and need to seam
 |----------|------------|--------------|-------|
 | **Windows** | `host.exe` | WPF (.NET 8) | PowerShell |
 | **macOS** | `host` | Avalonia (.NET 8) | zsh |
+| **Linux** | `host` | Avalonia (.NET 8) | bash / zsh |
 
-Both versions share the same core functionality and configuration format.
+All versions share the same core functionality and configuration format.
+
+## Install
+
+Pre-built binaries are published on the [GitHub Releases page](https://github.com/stevehansen/TerminalHost/releases) for every tagged version. Pick the asset that matches your platform:
+
+| Platform | Asset | Notes |
+|----------|-------|-------|
+| Windows | `host_win-x64_v<version>.zip` | Primary WPF build. Includes Whisper voice support. |
+| Windows | `host-avalonia_win-x64_v<version>.zip` | Alternative Avalonia build (shared codebase with macOS/Linux). |
+| macOS (Apple Silicon) | `host-avalonia_osx-arm64_v<version>.dmg` | |
+| macOS (Intel) | `host-avalonia_osx-x64_v<version>.dmg` | |
+| Linux x64 | `host-avalonia_linux-x64_v<version>.tar.gz` | On minimal distros also install `libice6 libsm6 libfontconfig1`. |
+
+The builds are **unsigned**, so your OS warns you the first time you launch. One-time bypass per platform:
+
+### Windows — SmartScreen warning
+
+1. Extract the zip and double-click `host.exe`.
+2. SmartScreen pops up: _"Windows protected your PC."_
+3. Click **More info**, then **Run anyway**.
+
+### macOS — Gatekeeper "Open Anyway"
+
+On macOS Sequoia (15+) the right-click bypass was removed.
+
+1. Mount the `.dmg` and drag `TerminalHost.app` to `/Applications`.
+2. Try to launch it. macOS will say: _"TerminalHost cannot be opened because Apple cannot check it for malicious software."_
+3. Open **System Settings → Privacy & Security**, scroll to the security message, and click **Open Anyway**.
+4. Confirm with Touch ID or your password.
+
+### Linux
+
+```bash
+tar -xzf host-avalonia_linux-x64_v<version>.tar.gz
+cd host-avalonia_linux-x64_v<version>
+./host
+```
 
 ## Getting Started
 

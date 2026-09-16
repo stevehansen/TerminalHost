@@ -276,6 +276,7 @@ public partial class App : Application
         services.AddSingleton<IConfigurationService>(sp =>
             new ConfigurationService(sp.GetRequiredService<IFileSystem>(), args.UserDataDir));
         services.AddSingleton<ISystemInfoService, WindowsSystemInfoService>();
+        services.AddSingleton<IVersionService, VersionService>();
         services.AddSingleton<IStatisticsService, StatisticsService>();
         services.AddSingleton<ISystemTrayService, SystemTrayService>();
         services.AddSingleton<IDialogService, DialogService>();

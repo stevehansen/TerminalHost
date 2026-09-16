@@ -16,6 +16,8 @@ public partial class HelpViewModel : BasePanelViewModel
     public override string PanelIcon => "❓";
     public override PanelSizePreset SizePreset => PanelSizePreset.Large;
 
+    public string VersionString => _mainViewModel.VersionString;
+
     #region Keyboard Shortcuts
 
     /// <summary>
