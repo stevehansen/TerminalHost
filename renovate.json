@@ -2,5 +2,37 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "groupName": "LiveChartsCore",
+      "matchPackageNames": [
+        "/^LiveChartsCore\\./"
+      ]
+    },
+    {
+      "groupName": "Whisper.net",
+      "matchPackageNames": [
+        "/^Whisper\\.net/"
+      ]
+    },
+    {
+      "groupName": "FlaUI",
+      "matchPackageNames": [
+        "/^FlaUI\\./"
+      ]
+    },
+    {
+      "groupName": "WebView.Avalonia",
+      "matchPackageNames": [
+        "/^WebView\\.Avalonia/"
+      ]
+    },
+    {
+      "groupName": "xunit",
+      "matchPackageNames": [
+        "/^xunit/"
+      ]
+    }
   ]
 }
