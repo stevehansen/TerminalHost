@@ -45,11 +45,11 @@ public class ProjectLaunchTests : IDisposable
         
         if (rootDir == null) throw new DirectoryNotFoundException("Could not find root directory");
 
-        var appPath = Path.Combine(rootDir, "src", "TerminalHost", "TerminalHost", "bin", "Debug", "net8.0-windows", "win-x64", "host.exe");
+        var appPath = Path.Combine(rootDir, "src", "TerminalHost", "TerminalHost", "bin", "Debug", "net10.0-windows", "win-x64", "host.exe");
 
         if (!File.Exists(appPath))
         {
-            appPath = Path.Combine(rootDir, "src", "TerminalHost", "TerminalHost", "bin", "Debug", "net8.0-windows", "host.exe");
+            appPath = Path.Combine(rootDir, "src", "TerminalHost", "TerminalHost", "bin", "Debug", "net10.0-windows", "host.exe");
         }
 
         if (!File.Exists(appPath))

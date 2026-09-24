@@ -180,7 +180,7 @@ The following use direct system calls because they don't participate in DI or ex
 
 ## Project Overview
 
-**TerminalHost** is a cross-platform desktop application (.NET 8) that manages terminal pairs for project directories. Each project tab contains two terminals: a custom command terminal (default: Claude Code) and a shell terminal, plus an optional run terminal for development servers. Allows easy switching between them without termination.
+**TerminalHost** is a cross-platform desktop application (.NET 10) that manages terminal pairs for project directories. Each project tab contains two terminals: a custom command terminal (default: Claude Code) and a shell terminal, plus an optional run terminal for development servers. Allows easy switching between them without termination.
 
 | Platform | Executable | UI Framework | Shell |
 |----------|------------|--------------|-------|
@@ -191,7 +191,7 @@ The following use direct system calls because they don't participate in DI or ex
 
 | Component | Windows | macOS |
 |-----------|---------|-------|
-| **UI Framework** | WPF (.NET 8) | Avalonia (.NET 8) |
+| **UI Framework** | WPF (.NET 10) | Avalonia (.NET 10) |
 | **Terminal Control** | EasyWindowsTerminalControl | Native PTY via Python helper |
 | **MVVM** | CommunityToolkit.Mvvm | CommunityToolkit.Mvvm |
 | **Single Instance** | Mutex + Named Pipes | Unix Domain Sockets |
@@ -288,17 +288,17 @@ The codebase is split into platform-agnostic and platform-specific projects:
 
 ```
 src/
-├── TerminalHost.Core/        # Platform-agnostic (.NET 8)
+├── TerminalHost.Core/        # Platform-agnostic (.NET 10)
 │   ├── Domain/               # All domain models (44 files)
 │   ├── Interfaces/           # Service contracts (23 interfaces)
 │   ├── Services/             # Portable service implementations
 │   └── ViewModels/           # Portable ViewModels (5 files)
 │
-├── TerminalHost.Windows/     # Windows-specific (.NET 8 Windows)
+├── TerminalHost.Windows/     # Windows-specific (.NET 10 Windows)
 │   ├── Services/             # TimerService, ToastService, SingleInstanceService
 │   └── Platform/             # DarkModeHelper (P/Invoke)
 │
-├── TerminalHost.macOS/       # macOS-specific (.NET 8)
+├── TerminalHost.macOS/       # macOS-specific (.NET 10)
 │   ├── Services/             # MacSingleInstanceService, MacTimerService
 │   └── Resources/            # pty_helper.py for PTY support
 │
@@ -312,7 +312,7 @@ src/
 │   ├── ViewModels/           # Avalonia-coupled ViewModels
 │   └── Services/             # Avalonia-coupled services
 │
-└── TerminalHost.Channel/     # Claude Code channel bridge (.NET 8 console)
+└── TerminalHost.Channel/     # Claude Code channel bridge (.NET 10 console)
     └── Program.cs            # Stdio MCP channel server: SSE events -> channel notifications
 ```
 

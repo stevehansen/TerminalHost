@@ -14,8 +14,8 @@ A third **Run terminal** is available for dev server output.
 
 | Platform | Executable | UI Framework | Default Shell |
 |----------|------------|--------------|---------------|
-| **Windows** | `host.exe` | WPF (.NET 8) | PowerShell |
-| **macOS** | `host` | Avalonia (.NET 8) | zsh |
+| **Windows** | `host.exe` | WPF (.NET 10) | PowerShell |
+| **macOS** | `host` | Avalonia (.NET 10) | zsh |
 
 Both versions share the same core functionality, configuration format, and keyboard shortcuts.
 

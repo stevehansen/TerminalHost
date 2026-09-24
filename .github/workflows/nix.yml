@@ -1,0 +1,64 @@
+name: Nix
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # deps.json is a lockfile: buildDotnetModule restores strictly from it, so a
+  # dependency bump in any .csproj that doesn't land here breaks `nix build`
+  # with no other signal. Regenerating and diffing is what makes that drift
+  # visible on the PR that causes it.
+  deps-sync:
+    name: deps.json in sync
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - uses: cachix/install-nix-action@v31
+      with:
+        extra_nix_config: |
+          experimental-features = nix-command flakes
+
+    - name: Regenerate deps.json
+      run: |
+        script=$(nix build --no-link --print-out-paths .#default.passthru.fetch-deps)
+        # fetch-deps is a writeShellScript (file) in some nixpkgs revisions and a
+        # writeShellApplication (dir with bin/) in others.
+        if [ -d "$script" ]; then
+          script=$(find "$script/bin" -type f -perm -u+x | head -n1)
+        fi
+        "$script" "$PWD/deps.regenerated.json"
+
+    - name: Upload regenerated deps.json
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: deps-json
+        path: deps.regenerated.json
+        if-no-files-found: ignore
+
+    - name: Compare against committed deps.json
+      run: |
+        if ! diff -u deps.json deps.regenerated.json; then
+          echo "::error::deps.json is out of sync with the .csproj package references. Download the 'deps-json' artifact from this run and commit it as deps.json."
+          exit 1
+        fi
+
+  build:
+    name: nix build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - uses: cachix/install-nix-action@v31
+      with:
+        extra_nix_config: |
+          experimental-features = nix-command flakes
+    - name: Build
+      run: nix build .#default --print-build-logs

@@ -33,21 +33,21 @@ public class SmokeTests : IDisposable
 
     private string FindAppPath()
     {
-        // Navigate up from bin/Debug/net8.0-windows/ to root
+        // Navigate up from bin/Debug/net10.0-windows/ to root
         var currentDir = AppDomain.CurrentDomain.BaseDirectory;
-        // bin -> Debug -> net8.0 -> UITests -> tests -> root
+        // bin -> Debug -> net10.0 -> UITests -> tests -> root
         var rootDir = Directory.GetParent(currentDir)?.Parent?.Parent?.Parent?.Parent?.Parent?.FullName;
         
         if (rootDir == null) throw new DirectoryNotFoundException("Could not find root directory");
 
         // Path to the executable
-        // src\TerminalHost\TerminalHost\bin\Debug\net8.0-windows\win-x64\host.exe
-        var appPath = Path.Combine(rootDir, "src", "TerminalHost", "TerminalHost", "bin", "Debug", "net8.0-windows", "win-x64", "host.exe");
+        // src\TerminalHost\TerminalHost\bin\Debug\net10.0-windows\win-x64\host.exe
+        var appPath = Path.Combine(rootDir, "src", "TerminalHost", "TerminalHost", "bin", "Debug", "net10.0-windows", "win-x64", "host.exe");
 
         if (!File.Exists(appPath))
         {
             // Fallback for non-win-x64 if necessary, though csproj enforces it
-            appPath = Path.Combine(rootDir, "src", "TerminalHost", "TerminalHost", "bin", "Debug", "net8.0-windows", "host.exe");
+            appPath = Path.Combine(rootDir, "src", "TerminalHost", "TerminalHost", "bin", "Debug", "net10.0-windows", "host.exe");
         }
 
         if (!File.Exists(appPath))
