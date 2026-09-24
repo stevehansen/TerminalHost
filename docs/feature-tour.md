@@ -7,7 +7,7 @@ title: Feature Tour
 
 # Feature Tour
 
-This page walks through the primary workflows supported by **TerminalHost**: a WPF (.NET 8) desktop app (`host.exe`) that creates **one tab per project directory** with a **terminal pair** (custom AI terminal + PowerShell) and an optional **Run terminal** for dev-server output.
+This page walks through the primary workflows supported by **TerminalHost**: a WPF (.NET 10) desktop app (`host.exe`) that creates **one tab per project directory** with a **terminal pair** (custom AI terminal + PowerShell) and an optional **Run terminal** for dev-server output.
 
 ---
 

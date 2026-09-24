@@ -250,7 +250,7 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
             Path.Combine(appDir, exeName),
             Path.Combine(appDir, "terminalhost-channel", exeName),
             // Development: relative to the Avalonia project bin output
-            Path.Combine(appDir, "..", "..", "..", "..", "TerminalHost.Channel", "bin", "Debug", "net8.0", exeName),
+            Path.Combine(appDir, "..", "..", "..", "..", "TerminalHost.Channel", "bin", "Debug", "net10.0", exeName),
         };
 
         foreach (var candidate in candidates)

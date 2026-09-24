@@ -756,11 +756,9 @@ public class TranscriptParserService
     {
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         using var reader = new StreamReader(stream);
-        while (!reader.EndOfStream)
+        while (await reader.ReadLineAsync() is { } line)
         {
-            var line = await reader.ReadLineAsync();
-            if (line != null)
-                yield return line;
+            yield return line;
         }
     }
 }

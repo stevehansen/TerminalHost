@@ -220,11 +220,6 @@
     "hash": "sha256-+7YVB4UIGrvWzDkW5boLTC+6l2s96Jh1p0NeT95bb9Y="
   },
   {
-    "pname": "Microsoft.CSharp",
-    "version": "4.7.0",
-    "hash": "sha256-Enknv2RsFF68lEPdrf5M+BpV1kHoLTVRApKUwuk/pj0="
-  },
-  {
     "pname": "Microsoft.Extensions.AI.Abstractions",
     "version": "10.2.0",
     "hash": "sha256-R9YoFfl38P2un/cpQJDhtZM9YgV+GMHGlBJRdgO0bhk="
@@ -238,11 +233,6 @@
     "pname": "Microsoft.Extensions.DependencyInjection.Abstractions",
     "version": "10.0.12",
     "hash": "sha256-RmT6sKxLVriTUzP1nunngByKuW3nxXyztuuBkqWmHFU="
-  },
-  {
-    "pname": "Microsoft.Extensions.DependencyInjection.Abstractions",
-    "version": "8.0.2",
-    "hash": "sha256-UfLfEQAkXxDaVPC7foE/J3FVEXd31Pu6uQIhTic3JgY="
   },
   {
     "pname": "Microsoft.Extensions.FileProviders.Abstractions",
@@ -303,61 +293,6 @@
     "pname": "SkiaSharp.NativeAssets.Win32",
     "version": "2.88.9",
     "hash": "sha256-kP5XM5GgwHGfNJfe4T2yO5NIZtiF71Ddp0pd1vG5V/4="
-  },
-  {
-    "pname": "System.Buffers",
-    "version": "4.6.1",
-    "hash": "sha256-sARR6R0Bb77Aka0eNh86cBXh2R1AR/fkinRFWypnPXk="
-  },
-  {
-    "pname": "System.IO.Pipelines",
-    "version": "10.0.12",
-    "hash": "sha256-oMgSuOTUHB3SSGOs2WmWf9dYyatzDyYYSlNLFhAmxH4="
-  },
-  {
-    "pname": "System.IO.Pipelines",
-    "version": "8.0.0",
-    "hash": "sha256-LdpB1s4vQzsOODaxiKstLks57X9DTD5D6cPx8DE1wwE="
-  },
-  {
-    "pname": "System.Memory",
-    "version": "4.6.3",
-    "hash": "sha256-JgeK63WMmumF6L+FH5cwJgYdpqXrSDcgTQwtIgTHKVU="
-  },
-  {
-    "pname": "System.Numerics.Vectors",
-    "version": "4.6.1",
-    "hash": "sha256-K8UAqG3LAvIDLW2Hf54tbp5KeQgOVyObQZhnnUAx8sc="
-  },
-  {
-    "pname": "System.Reflection.Emit",
-    "version": "4.7.0",
-    "hash": "sha256-Fw/CSRD+wajH1MqfKS3Q/sIrUH7GN4K+F+Dx68UPNIg="
-  },
-  {
-    "pname": "System.Reflection.Emit.Lightweight",
-    "version": "4.7.0",
-    "hash": "sha256-V0Wz/UUoNIHdTGS9e1TR89u58zJjo/wPUWw6VaVyclU="
-  },
-  {
-    "pname": "System.Text.Encodings.Web",
-    "version": "10.0.12",
-    "hash": "sha256-8uSYAMukJrF6qhu+ByaEPTUIGVakjErqudeiv3Spwgg="
-  },
-  {
-    "pname": "System.Text.Encodings.Web",
-    "version": "9.0.6",
-    "hash": "sha256-HHifM7LW0+JhFLHMbPx3954t70IjdTPoBE8mWEiJxcI="
-  },
-  {
-    "pname": "System.Text.Json",
-    "version": "10.0.12",
-    "hash": "sha256-KdpeDsA4NaavUK9TPRXYBwUwYm0uLuTx7x3XmelKQgc="
-  },
-  {
-    "pname": "System.Text.Json",
-    "version": "10.0.2",
-    "hash": "sha256-Gf6L3mxsdvmN8gDyoUhfZDSFWKpmn9UjJ2v/p1CDFmk="
   },
   {
     "pname": "Tmds.DBus.Protocol",
