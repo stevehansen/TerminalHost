@@ -17,6 +17,7 @@ public sealed class TerminalControlFactory : ITerminalControlFactory
     private readonly IContainerService _containerService;
     private readonly IConfigurationService _configService;
     private readonly ParleyLaunchIntegration _parley;
+    private readonly WindowsCommandComposer _composer = new();
 
     public TerminalControlFactory(IFileSystem fileSystem, IDialogService dialogService, IContainerService containerService, IConfigurationService configService, ParleyLaunchIntegration parley)
     {
@@ -225,8 +226,7 @@ public sealed class TerminalControlFactory : ITerminalControlFactory
                 ? BuildChannelFlags(workingDir, parley.PushViaChannels, env)
                 : "";
 
-            var envPrefix = string.Concat(env.Select(kv => $"set \"{kv.Key}={kv.Value}\" && "));
-            return $"{envPrefix}{command}{channelFlags}";
+            return _composer.WithEnvironment($"{command}{channelFlags}", env);
         }
         catch
         {
