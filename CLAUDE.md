@@ -44,13 +44,15 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] **Voice Commands**: Hands-free control via speech recognition (F4). Floating bar shows transcript, matched command preview with confidence-based countdown, "Send to AI" fallback for unmatched speech, and meta-commands (confirm/cancel/send-to-AI keywords). Two engines: Windows Speech (default, zero setup) and Whisper (opt-in, open-vocabulary, multi-language via whisper.cpp). Settings in Ctrl+, General section.
 - [x] **Status Overlay**: Floating always-on-top window showing terminal activity state (Ctrl+Shift+Y). Displays active/waiting/completed/idle with animated icons. Draggable, non-focus-stealing, click to restore main window. Multiple instances for multi-monitor setups. Auto-show/hide on window focus change (optional). Command palette commands for toggle/create/close.
 
-- [x] **Claude Code Channels**: C# stdio-to-HTTP bridge (`src/TerminalHost.Channel/`) that connects Claude Code's MCP channel protocol to TerminalHost's existing API. Pushes events via SSE, proxies MCP tool calls to the existing McpHandler. Settings UI (Ctrl+, Channels section), command palette actions (Send Message to Claude, Toggle Channel). Auto-registers in .mcp.json per project.
+- [x] **Claude Code Channels**: C# stdio channel server (`src/TerminalHost.Channel/`) that connects Claude Code's MCP channel protocol to TerminalHost's existing API. Pushes events via SSE (event-push only, no tools). Settings UI (Ctrl+, Channels section), command palette actions (Send Message to Claude, Toggle Channel). Auto-registers in .mcp.json per project.
 
 - [x] **PowerToys CmdPal Extension**: Separate extension project (`src/TerminalHost.CmdPal/`) integrating with PowerToys Command Palette. Dock band widget showing active project/git/activity status, workspace switcher, git status markdown page, tasks list. Communicates via REST API.
 
 - [x] **Containerized Workspaces**: Docker-based isolated environments for AI agents. Settings UI (Ctrl+, Containers section) with global enable, Docker path, image name/tag, auto-approve, SSH mount, GitHub CLI auth mount, network mode, reference volume management, active container list with stop/remove, Dockerfile editor button, stop-on-exit setting. Per-project toggle via command palette with auto tab reload. 🐳 tab indicator for containerized workspaces. Progress toast for image builds. REFS.md auto-generation. Graceful Docker-not-running handling. Dockerfile versioning with hash-based staleness detection and guided rebuild. First-time build dialog for new users. Config staleness detection via Docker container labels with "Container: Recreate Current" command palette action.
 
 - [x] **Agentic Long-Term Memory (via Eidet)**: Integration with [Eidet](https://github.com/stevehansen/eidet) — a standalone local-first memory service for AI coding agents. TerminalHost is a REST API client of Eidet (`IEidetService` port, `HttpEidetService` adapter), not an embedded memory library. Eidet provides: typed entries (Observation, Insight, Procedure, Heuristic), Docker-like memory layers, hybrid search (vector + full-text + metadata), <600 token wake-up, 13 MCP tools (`eidet_*`), write gates (secret scanning + signal filter), echo/fizzle feedback, differential decay, cross-repo linking, Ollama enrichment. TerminalHost consumes: Memory Browser panel, intake triggers on tab open, stats display, settings UI (Eidet URL + enabled). See [AgenticMemory.md](docs/specs/AgenticMemory.md) for architecture and implementation details.
+
+- [x] **Inter-Session Messaging (via Parley)**: The former in-process collab MCP (`terminalhost-collab`, `/api/mcp`) was extracted into [Parley](https://github.com/stevehansen/parley) — a standalone hub (`parley serve`, 127.0.0.1:19480) plus a per-session stdio MCP shim (`parley mcp`) that pushes messages into Claude Code via channels. Installed as dotnet tool `HC.Parley`. TerminalHost is a client (`IParleyService` port, `HttpParleyService` adapter with an SSE change feed): registers the `parley` stdio server in `~/.claude.json` and Codex (only when enabled + installed; removes stale `terminalhost-collab`), sets `PARLEY_SESSION` to the tab name, optionally adds `server:parley` to `--dangerously-load-development-channels`, shows topics/subscribers/messages in the Claude Tasks panel, proxies `/api/collab/*` for Spark Canvas. Settings (Ctrl+, API & Webhooks → Parley): enabled, hub URL, push via channels, status, Install/Update button. See [Parley.md](docs/specs/Parley.md).
 
 ### Deferred Features
 
@@ -311,7 +313,7 @@ src/
 │   └── Services/             # Avalonia-coupled services
 │
 └── TerminalHost.Channel/     # Claude Code channel bridge (.NET 8 console)
-    └── Program.cs            # Stdio-to-HTTP MCP bridge with SSE event push
+    └── Program.cs            # Stdio MCP channel server: SSE events -> channel notifications
 ```
 
 ### Important: Cross-Platform Code Changes
@@ -328,6 +330,7 @@ src/
 | UI views (both platforms) | `TerminalHost/Views/` (XAML) AND `TerminalHost.Avalonia/Views/` (AXAML) |
 | Platform services (timers, dialogs) | Both `TerminalHost.Windows/` AND `TerminalHost.macOS/` |
 | Memory integration (Eidet client) | `TerminalHost.Core/Interfaces/IEidetService.cs` + `TerminalHost.Core/Services/HttpEidetService.cs` |
+| Inter-session messaging (Parley client) | `TerminalHost.Core/Interfaces/IParleyService.cs` + `TerminalHost.Core/Services/HttpParleyService.cs` (UI/API) and `ParleyLaunchIntegration.cs` (MCP registration, session env, channel flag) |
 
 **Examples:**
 - Adding a new setting → Update `AppSettings.cs` in Core, then update Settings views in both WPF and Avalonia
@@ -602,8 +605,9 @@ All specifications are documented in `docs/specs/`. Status legend:
 | [RestApiAndWebhooks.md](docs/specs/RestApiAndWebhooks.md) | REST API, SSE streaming, webhooks for external integration | **Partial** | Phases 1-3 complete; Phase 4 (Scriban) + Phase 5 (Write/MCP) remaining |
 | [CmdPalExtension.md](docs/specs/CmdPalExtension.md) | PowerToys Command Palette extension (dock band, workspace switcher, git status, tasks) | **Partial** | Phases 1-2 scaffolded; Phase 3-4 planned |
 | [ContainerizedWorkspaces.md](docs/specs/ContainerizedWorkspaces.md) | Docker-based isolated environments for AI agents with rw/ro volume mounts | **Partial** | Phase 1-3 complete; Phase 4 (advanced) planned |
-| [CollabSync.md](docs/specs/CollabSync.md) | Multi-device collaboration sync bridge (direct/tunnel/relay transports) | **Draft** | Spec complete; not yet implemented |
+| [CollabSync.md](docs/specs/CollabSync.md) | Multi-device collaboration sync bridge (direct/tunnel/relay transports) | **Draft** | Not implemented; collab now lives in Parley, so a bridge would link Parley hubs |
 | [AgenticMemory.md](docs/specs/AgenticMemory.md) | Agentic long-term memory via Eidet (REST client, Memory Browser, container MCP, settings) | **Completed** | `IEidetService` port with `HttpEidetService` adapter replaces TerminalHost.Memory. Eidet project: [github.com/stevehansen/eidet](https://github.com/stevehansen/eidet) |
+| [Parley.md](docs/specs/Parley.md) | Inter-session messaging via the external Parley hub (client, MCP registration, push via channels, migration from collab) | **Completed** | Parley project: [github.com/stevehansen/parley](https://github.com/stevehansen/parley) |
 
 ## Remaining Work Summary
 

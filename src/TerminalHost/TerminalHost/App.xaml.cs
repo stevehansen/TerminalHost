@@ -228,6 +228,7 @@ public partial class App : Application
         // Auto-start API server if enabled
         _ = AutoStartApiServerAsync();
         _ = AutoConnectMemoryAsync();
+        _services?.GetService<IParleyService>()?.ApplySettings();
     }
 
     private async Task AutoStartApiServerAsync()
@@ -281,6 +282,7 @@ public partial class App : Application
         services.AddSingleton<IDialogService, DialogService>();
         services.AddSingleton<IProfileRegistry, ProfileRegistry>();
         services.AddSingleton<ISessionManager, SessionManager>();
+        services.AddSingleton<TerminalHost.Core.Services.ParleyLaunchIntegration>();
         services.AddSingleton<ITerminalControlFactory, TerminalControlFactory>();
         services.AddSingleton<IGitProcessRunner, GitProcessRunner>();
         services.AddSingleton<IFileSystem, FileSystem>();
@@ -337,8 +339,7 @@ public partial class App : Application
         services.AddSingleton<ExplorerEventRouter>();
         services.AddSingleton<LinkClickHandler>();
         services.AddSingleton<IWebhookDeliveryService, WebhookDeliveryService>();
-        services.AddSingleton<ICollabService, CollabService>();
-        services.AddSingleton<McpHandler>();
+        services.AddSingleton<IParleyService, HttpParleyService>();
         services.AddSingleton<ApiServer>();
         services.AddSingleton<IApiServer>(sp => sp.GetRequiredService<ApiServer>());
         services.AddSingleton<IEidetService, HttpEidetService>();

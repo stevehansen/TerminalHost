@@ -2368,7 +2368,7 @@
                     <StackPanel Margin="24"
                                 IsVisible="{Binding SelectedSection, Converter={StaticResource SectionVisibility}, ConverterParameter=ApiWebhooks}">
                         <TextBlock Text="API &amp; Webhooks" Classes="SectionHeader"/>
-                        <TextBlock Text="REST API server, SSE streaming, and MCP collaboration integration." Classes="SectionDescription"/>
+                        <TextBlock Text="REST API server, SSE streaming, webhooks, and Parley integration." Classes="SectionDescription"/>
 
                         <!-- API Server -->
                         <CheckBox Content="Enable API Server"
@@ -2439,56 +2439,73 @@
                         <!-- Separator -->
                         <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
 
-                        <!-- MCP Collab Integration -->
-                        <TextBlock Text="MCP Collab Integration" Classes="SectionHeader"/>
-                        <TextBlock Text="Register TerminalHost as an MCP server in Claude Code for collaboration tools."
-                                   Classes="SectionDescription" Margin="0,0,0,12"/>
+                        <!-- Parley (inter-session messaging) -->
+                        <TextBlock Text="Parley (Inter-Session Messaging)" Classes="SectionHeader"/>
+                        <TextBlock Text="Parley is a standalone tool that lets AI sessions message each other on named topics. TerminalHost registers its MCP server for the sessions it launches and shows topics and messages in the Claude Tasks panel."
+                                   Classes="SectionDescription" TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+                        <CheckBox Content="Enable Parley integration"
+                                  IsChecked="{Binding ParleyEnabled}"
+                                  Foreground="{StaticResource TextPrimaryBrush}"
+                                  Margin="0,0,0,4"/>
+                        <TextBlock Text="Registers the 'parley' MCP server (user scope) for Claude Code and Codex when the parley tool is installed, and names each session after its tab."
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="11" TextWrapping="Wrap"
+                                   Margin="0,0,0,12"/>
+
+                        <Grid ColumnDefinitions="Auto,320" Margin="0,0,0,12">
+                            <TextBlock Text="HUB URL" Classes="FieldLabel" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                            <TextBox Grid.Column="1" Text="{Binding ParleyHubUrl}"
+                                     Background="{StaticResource BackgroundLightBrush}"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     BorderThickness="1"
+                                     BorderBrush="{StaticResource BorderSubtleBrush}"
+                                     Padding="8,4"/>
+                        </Grid>
+                        <TextBlock Text="Default http://127.0.0.1:19480. The hub starts automatically with the first session that uses Parley."
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="11"
+                                   Margin="0,-8,0,12"/>
+
+                        <CheckBox Content="Push messages into Claude Code sessions (channels)"
+                                  IsChecked="{Binding ParleyPushViaChannels}"
+                                  IsEnabled="{Binding ParleyEnabled}"
+                                  Foreground="{StaticResource TextPrimaryBrush}"
+                                  Margin="0,0,0,4"/>
+                        <TextBlock Text="Adds '--dangerously-load-development-channels server:parley' when launching Claude Code, so a new message wakes the receiving session instead of waiting for it to poll. Requires the Claude Code channels research preview and a claude.ai login."
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="11" TextWrapping="Wrap"
+                                   Margin="0,0,0,12"/>
 
                         <StackPanel Margin="0,0,0,8">
                             <!-- Status indicator -->
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                 <Panel Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center">
                                     <Ellipse Width="10" Height="10" Fill="#4CAF50"
-                                             IsVisible="{Binding McpCollabInstalled}"
+                                             IsVisible="{Binding ParleyInstalled}"
                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     <Ellipse Width="10" Height="10" Fill="#F44336"
-                                             IsVisible="{Binding !McpCollabInstalled}"
+                                             IsVisible="{Binding !ParleyInstalled}"
                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Panel>
-                                <TextBlock Text="{Binding McpCollabStatus}"
+                                <TextBlock Text="{Binding ParleyStatus}"
                                            Foreground="{StaticResource TextPrimaryBrush}"
                                            VerticalAlignment="Center"/>
                                 <TextBlock Text="  Detecting..."
                                            Foreground="{StaticResource TextDimmedBrush}"
                                            VerticalAlignment="Center"
-                                           IsVisible="{Binding McpCollabDetecting}"/>
-                            </StackPanel>
-
-                            <!-- MCP URL display -->
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                <TextBlock Text="MCP URL:" Classes="FieldLabel" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <TextBox Text="{Binding McpCollabUrl, Mode=OneWay}" IsReadOnly="True"
-                                         Background="{StaticResource BackgroundLightBrush}"
-                                         Foreground="{StaticResource TextPrimaryBrush}"
-                                         BorderThickness="1"
-                                         BorderBrush="{StaticResource BorderSubtleBrush}"
-                                         Padding="8,4"
-                                         Width="320" VerticalAlignment="Center"/>
-                                <Button Content="Copy URL" Command="{Binding CopyMcpCollabUrlCommand}"
-                                        Classes="SettingsToolbarButton" Margin="8,0,0,0"/>
+                                           IsVisible="{Binding ParleyDetecting}"/>
                             </StackPanel>
 
                             <!-- Action buttons -->
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                <Button Content="Install in Claude Code" Command="{Binding InstallMcpCollabCommand}"
+                                <Button Content="{Binding ParleyInstallButtonText}" Command="{Binding InstallParleyCommand}"
                                         Classes="SettingsToolbarButton"/>
-                                <Button Content="Uninstall" Command="{Binding UninstallMcpCollabCommand}"
-                                        Classes="SettingsToolbarButton" Margin="4,0,0,0"/>
-                                <Button Content="Re-detect" Command="{Binding DetectMcpCollabCommand}"
+                                <Button Content="Re-detect" Command="{Binding DetectParleyCommand}"
                                         Classes="SettingsToolbarButton" Margin="4,0,0,0"/>
                             </StackPanel>
 
-                            <TextBlock Text="Registers globally in Claude Code (user scope) so all projects have access to collaboration tools."
+                            <TextBlock Text="Installs the parley command via 'dotnet tool install -g HC.Parley' (requires the .NET SDK). More at github.com/stevehansen/parley."
                                        Foreground="{StaticResource TextDimmedBrush}"
                                        FontSize="11"
                                        Margin="0,4,0,0"/>

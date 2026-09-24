@@ -461,7 +461,8 @@ public partial class MainViewModel : ObservableObject
                 processService: _processService,
                 clipboardService: _clipboardService,
                 containerService: _containerService,
-                eidetService: App.Current.Services.GetService<IEidetService>()),
+                eidetService: App.Current.Services.GetService<IEidetService>(),
+                parleyService: App.Current.Services.GetService<IParleyService>()),
             onCreated: tab =>
             {
                 tab.CloseRequested += OnTabCloseRequested;
@@ -1793,6 +1794,9 @@ public partial class MainViewModel : ObservableObject
         if (eidet != null)
             _ = Task.Run(() => eidet.OnSettingsChangedAsync());
 
+        // Parley: restart/stop the hub watcher for a changed URL or Enabled flag
+        App.Current.Services.GetService<IParleyService>()?.ApplySettings();
+
         // Notify that config has been reloaded (for system tray, etc.)
         ConfigReloaded?.Invoke(this, EventArgs.Empty);
     }
@@ -2448,6 +2452,27 @@ public partial class MainViewModel : ObservableObject
 
         var status = config.Settings.Channel.Enabled ? "enabled" : "disabled";
         _toastService.Show($"Channel integration {status}. Restart Claude Code terminals to apply.", ToastType.Info);
+    }
+
+    internal void ToggleParleyIntegration()
+    {
+        var config = _configService.Load();
+        config.Settings.Parley.Enabled = !config.Settings.Parley.Enabled;
+        _configService.Save(config);
+        App.Current.Services.GetService<IParleyService>()?.ApplySettings();
+
+        var status = config.Settings.Parley.Enabled ? "enabled" : "disabled";
+        _toastService.Show($"Parley integration {status}. Restart AI terminals to apply.", ToastType.Info);
+    }
+
+    internal void ToggleParleyPushViaChannels()
+    {
+        var config = _configService.Load();
+        config.Settings.Parley.PushViaChannels = !config.Settings.Parley.PushViaChannels;
+        _configService.Save(config);
+
+        var status = config.Settings.Parley.PushViaChannels ? "enabled" : "disabled";
+        _toastService.Show($"Parley push via channels {status}. Restart Claude Code terminals to apply.", ToastType.Info);
     }
 
     public void Shutdown()

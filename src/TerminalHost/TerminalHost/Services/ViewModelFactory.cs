@@ -86,7 +86,8 @@ public class ViewModelFactory : IViewModelFactory
             _serviceProvider.GetRequiredService<IContainerService>(),
             _serviceProvider.GetRequiredService<IFileSystem>(),
             _serviceProvider.GetService<IEidetService>(),
-            _serviceProvider.GetService<IContainerConfiguration>()
+            _serviceProvider.GetService<IContainerConfiguration>(),
+            _serviceProvider.GetService<IParleyService>()
         );
     }
     

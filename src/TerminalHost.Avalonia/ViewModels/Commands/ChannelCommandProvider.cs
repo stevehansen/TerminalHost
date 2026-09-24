@@ -4,8 +4,9 @@ using TerminalHost.Core.Workspace;
 namespace TerminalHost.ViewModels;
 
 /// <summary>
-/// Channel category provider — Claude Code stdio-to-HTTP channel integration:
-/// send a message to the live Claude session, toggle integration globally.
+/// Channel category provider — Claude Code channel integration: send a message to the
+/// live Claude session, toggle integration globally; plus the Parley toggles (Parley's
+/// push delivery also rides on Claude Code channels).
 /// Split out of <see cref="MainViewModelStaticCommandProvider"/> in Step 2d.
 /// </summary>
 internal sealed class ChannelCommandProvider : ICommandProvider
@@ -46,6 +47,24 @@ internal sealed class ChannelCommandProvider : ICommandProvider
                 Category = "Channel",
                 IntroducedOn = new DateOnly(2026, 3, 24),
                 Execute = () => _vm.ToggleChannelIntegration()
+            },
+            new() {
+                Id = "parley-toggle",
+                Name = "Parley: Toggle Integration",
+                Description = "Enable or disable Parley inter-session messaging (MCP registration, session naming, Claude Tasks feed)",
+                Icon = "💬",
+                Category = "Parley",
+                IntroducedOn = new DateOnly(2026, 9, 24),
+                Execute = () => _vm.ToggleParleyIntegration()
+            },
+            new() {
+                Id = "parley-toggle-push",
+                Name = "Parley: Toggle Push via Channels",
+                Description = "Push Parley messages into Claude Code sessions (--dangerously-load-development-channels server:parley)",
+                Icon = "📬",
+                Category = "Parley",
+                IntroducedOn = new DateOnly(2026, 9, 24),
+                Execute = () => _vm.ToggleParleyPushViaChannels()
             }
         ];
     }

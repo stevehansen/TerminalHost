@@ -20,7 +20,7 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
     private readonly ITaskAggregator _taskAggregator;
     private readonly ITaskService _taskService;
     private readonly IDispatcherService _dispatcherService;
-    private readonly ICollabService? _collabService;
+    private readonly IParleyService? _parleyService;
 
     #region IPanelableViewModel Implementation
 
@@ -167,27 +167,27 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
     private string? _currentWorkspacePath;
 
     /// <summary>
-    /// Active collaboration topics from the MCP collab service.
+    /// Active topics on the Parley hub (inter-session messaging).
     /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasCollabTopics))]
-    private ObservableCollection<CollabTopic> _collabTopics = [];
+    [NotifyPropertyChangedFor(nameof(HasParleyTopics))]
+    private ObservableCollection<ParleyTopic> _parleyTopics = [];
 
     /// <summary>
-    /// Recent collaboration messages across all topics (latest ~20).
+    /// Recent Parley messages across all topics (latest ~30).
     /// </summary>
     [ObservableProperty]
-    private ObservableCollection<CollabMessage> _recentCollabMessages = [];
+    private ObservableCollection<ParleyMessage> _recentParleyMessages = [];
 
     /// <summary>
-    /// Whether there are any active collab topics.
+    /// Whether there are any active Parley topics.
     /// </summary>
-    public bool HasCollabTopics => CollabTopics.Count > 0;
+    public bool HasParleyTopics => ParleyTopics.Count > 0;
 
     /// <summary>
-    /// Whether there are any recent collab messages.
+    /// Whether there are any recent Parley messages.
     /// </summary>
-    public bool HasCollabMessages => RecentCollabMessages.Count > 0;
+    public bool HasParleyMessages => RecentParleyMessages.Count > 0;
 
     #endregion
 
@@ -195,12 +195,12 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
         ITaskAggregator taskAggregator,
         ITaskService taskService,
         IDispatcherService dispatcherService,
-        ICollabService? collabService = null)
+        IParleyService? parleyService = null)
     {
         _taskAggregator = taskAggregator;
         _taskService = taskService;
         _dispatcherService = dispatcherService;
-        _collabService = collabService;
+        _parleyService = parleyService;
 
         // Set defaults - defaults to docked Panel
         DisplayState = PanelDisplayState.Panel;
@@ -209,10 +209,9 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
 
         _taskAggregator.Changed += OnAggregatorChanged;
 
-        // Subscribe to collab state changes
-        if (_collabService != null)
+        if (_parleyService != null)
         {
-            _collabService.StateChanged += OnCollabStateChanged;
+            _parleyService.StateChanged += OnParleyStateChanged;
         }
     }
 
@@ -222,11 +221,11 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
     }
 
     /// <summary>
-    /// Handles collab state changes (topics, messages, claims).
+    /// Handles Parley hub changes (messages, topics, connect/disconnect). Raised off the UI thread.
     /// </summary>
-    private void OnCollabStateChanged()
+    private void OnParleyStateChanged()
     {
-        _dispatcherService.BeginInvoke(RefreshCollabState);
+        _dispatcherService.BeginInvoke(() => _ = RefreshParleyStateAsync());
     }
 
     /// <summary>
@@ -235,36 +234,43 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
     private int _lastSeenMessageId;
 
     /// <summary>
-    /// Refreshes the collab topics and recent messages from the collab service.
+    /// Incremented per refresh so a slow, superseded refresh doesn't overwrite a newer one.
     /// </summary>
-    private void RefreshCollabState()
+    private int _parleyRefreshGeneration;
+
+    /// <summary>
+    /// Refreshes the Parley topics and recent messages from the hub. Must start on the UI thread.
+    /// </summary>
+    private async Task RefreshParleyStateAsync()
     {
-        if (_collabService == null) return;
+        if (_parleyService == null) return;
 
-        var topics = _collabService.GetTopics();
+        var generation = ++_parleyRefreshGeneration;
+        var topicsTask = _parleyService.GetTopicsAsync();
+        var messagesTask = _parleyService.GetRecentMessagesAsync(30);
+        var topics = await topicsTask;
+        var messages = await messagesTask;
+        if (generation != _parleyRefreshGeneration) return;
 
-        CollabTopics.Clear();
+        ParleyTopics.Clear();
         foreach (var topic in topics)
-            CollabTopics.Add(topic);
-
-        // Gather recent messages across all topics
-        var messages = _collabService.GetRecentMessages(30);
+            ParleyTopics.Add(topic);
 
         // Track which messages are new (for bubble-up animation)
         var previousMax = _lastSeenMessageId;
         if (messages.Count > 0)
-            _lastSeenMessageId = messages.Max(m => m.Id);
+            _lastSeenMessageId = Math.Max(_lastSeenMessageId, messages.Max(m => m.Id));
 
-        RecentCollabMessages.Clear();
+        RecentParleyMessages.Clear();
         foreach (var msg in messages)
         {
             msg.IsNew = msg.Id > previousMax && previousMax > 0;
-            RecentCollabMessages.Add(msg);
+            RecentParleyMessages.Add(msg);
         }
 
-        OnPropertyChanged(nameof(HasCollabTopics));
-        OnPropertyChanged(nameof(HasCollabMessages));
-        IsEmptyStateVisible = ClaudeTasks.Count == 0 && CollabTopics.Count == 0;
+        OnPropertyChanged(nameof(HasParleyTopics));
+        OnPropertyChanged(nameof(HasParleyMessages));
+        IsEmptyStateVisible = ClaudeTasks.Count == 0 && ParleyTopics.Count == 0;
     }
 
     #region Commands
@@ -308,7 +314,7 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
 
         CurrentTask = ActiveTasks.FirstOrDefault();
         ActiveTasksCount = ActiveTasks.Count;
-        IsEmptyStateVisible = ClaudeTasks.Count == 0 && CollabTopics.Count == 0;
+        IsEmptyStateVisible = ClaudeTasks.Count == 0 && ParleyTopics.Count == 0;
     }
 
     /// <summary>
@@ -474,7 +480,7 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
     public void OnOpened()
     {
         RefreshTasks();
-        RefreshCollabState();
+        _ = RefreshParleyStateAsync();
     }
 
     /// <summary>

@@ -263,6 +263,9 @@ public partial class MainWindow : Window
         var eidet = App.Current.Services.GetService<IEidetService>();
         if (eidet != null)
             _ = eidet.OnSettingsChangedAsync();
+
+        // Parley: restart/stop the hub watcher for a changed URL or Enabled flag
+        App.Current.Services.GetService<IParleyService>()?.ApplySettings();
     }
 
     private void OnStateChanged(object? sender, EventArgs e)

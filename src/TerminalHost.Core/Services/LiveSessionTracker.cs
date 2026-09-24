@@ -15,7 +15,6 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
     private readonly IClaudeSessionIndexService? _sessionIndexService;
     private readonly ITranscriptWatcher? _transcriptWatcher;
     private readonly ISessionActivityService? _activityService;
-    private readonly ICollabService? _collabService;
     private readonly object _lock = new();
 
     internal const int InactivityCheckIntervalMs = 30_000;
@@ -35,14 +34,12 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
         ISessionStateStore stateStore,
         IClaudeSessionIndexService? sessionIndexService = null,
         ITranscriptWatcher? transcriptWatcher = null,
-        ISessionActivityService? activityService = null,
-        ICollabService? collabService = null)
+        ISessionActivityService? activityService = null)
     {
         _stateStore = stateStore ?? throw new ArgumentNullException(nameof(stateStore));
         _sessionIndexService = sessionIndexService;
         _transcriptWatcher = transcriptWatcher;
         _activityService = activityService;
-        _collabService = collabService;
 
         if (_transcriptWatcher != null)
         {
@@ -191,7 +188,6 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
     {
         if (string.IsNullOrEmpty(hookEvent.SessionId)) return;
         EnsureLiveSession(hookEvent);
-        TryFixCollabSessionName(hookEvent);
     }
 
     public void StartInactivityTimer()
@@ -284,73 +280,6 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
         else
         {
             HandleSessionStart(hookEvent);
-        }
-    }
-
-    /// <summary>
-    /// When a collab tool completes, correlate the Claude session id with the collab
-    /// subscriber name. If the subscriber used an auto-generated name, rename it to
-    /// the project folder name from the Claude session's cwd.
-    /// </summary>
-    private void TryFixCollabSessionName(HookEvent hookEvent)
-    {
-        if (_collabService == null) return;
-        var toolName = (hookEvent.ToolName ?? "").ToLowerInvariant();
-        if (!toolName.Contains("collab__subscribe") &&
-            !toolName.Contains("collab__send_message") &&
-            !toolName.Contains("collab__read_messages"))
-            return;
-
-        string? projectName = null;
-        string? workingDir = null;
-        lock (_lock)
-        {
-            if (_liveSessions.TryGetValue(hookEvent.SessionId!, out var live))
-            {
-                projectName = live.DisplayName;
-                workingDir = live.WorkingDirectory;
-            }
-        }
-        if (string.IsNullOrEmpty(projectName) || projectName == "Unknown") return;
-
-        string? topic = null;
-        if (hookEvent.RawData?.ToolInput is { } input && input.ValueKind == System.Text.Json.JsonValueKind.Object)
-        {
-            topic = input.TryGetProperty("topic", out var t) ? t.GetString()
-                  : input.TryGetProperty("name", out var n) ? n.GetString()
-                  : null;
-        }
-        if (string.IsNullOrEmpty(topic)) return;
-
-        var collabSessions = _collabService.GetSessions();
-        var allTopics = _collabService.GetTopics();
-        var collabTopic = allTopics.FirstOrDefault(ct => ct.Name == topic);
-        if (collabTopic == null) return;
-
-        var collabSession = collabSessions.FirstOrDefault(s => s.ClaudeSessionId == hookEvent.SessionId)
-            ?? collabSessions.FirstOrDefault(s =>
-                collabTopic.Subscribers.Contains(s.Name) &&
-                (s.Name.StartsWith("session-", StringComparison.OrdinalIgnoreCase) || s.Name == "unknown"))
-            ?? collabSessions.FirstOrDefault(s =>
-                collabTopic.Subscribers.Contains(s.Name) &&
-                string.IsNullOrEmpty(s.ClaudeSessionId));
-
-        if (collabSession == null) return;
-
-        collabSession.ClaudeSessionId = hookEvent.SessionId;
-        collabSession.WorkingDir ??= workingDir;
-        collabSession.ProjectName ??= projectName;
-
-        var oldName = collabSession.Name;
-        if (oldName.StartsWith("session-", StringComparison.OrdinalIgnoreCase) || oldName == "unknown")
-        {
-            if (!collabTopic.Subscribers.Contains(projectName))
-            {
-                collabTopic.Subscribers.Remove(oldName);
-                collabTopic.Subscribers.Add(projectName);
-                if (collabTopic.CreatedBy == oldName) collabTopic.CreatedBy = projectName;
-                collabSession.Name = projectName;
-            }
         }
     }
 

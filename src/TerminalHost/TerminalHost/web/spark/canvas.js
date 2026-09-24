@@ -1755,13 +1755,11 @@ class SparkCanvas {
 
     // ─── Collab Detection from Tool Calls ──────────────────
 
-    /** Detect collab topic subscriptions from MCP tool call names */
+    /** Detect topic subscriptions from Parley (mcp__parley__*) or legacy terminalhost-collab tool call names */
     _detectCollabFromTool(toolName, inputSummary, sessionId) {
         const name = (toolName || '').toLowerCase();
-        // Match collab subscribe, send_message, read_messages
-        const isCollabTool = name.includes('collab__subscribe')
-            || name.includes('collab__send_message')
-            || name.includes('collab__read_messages');
+        // Match subscribe, send_message, read_messages
+        const isCollabTool = /(?:parley|collab)__(?:subscribe|send_message|read_messages)/.test(name);
         if (!isCollabTool) return;
 
         // Extract topic name from inputSummary

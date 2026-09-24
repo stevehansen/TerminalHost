@@ -3,6 +3,11 @@
 > **Status**: Draft — design exploration, not yet implemented
 > **Depends on**: Collab MCP persistence (completed)
 > **Last updated**: 2026-03-30
+>
+> **Note (2026-09-24):** the collab MCP no longer lives in TerminalHost. It was extracted into the standalone
+> [Parley](Parley.md) app (hub + per-session stdio shim, https://github.com/stevehansen/parley). `CollabService`,
+> `McpHandler` and `/api/mcp` referenced below no longer exist; a sync bridge would now be a Parley feature that
+> links Parley hubs (e.g. hub-to-hub over the `/api/events` feed and `POST /api/messages`), not a TerminalHost one.
 
 ## Problem Statement
 

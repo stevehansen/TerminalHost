@@ -28,8 +28,7 @@ public class LiveSessionTrackerTests
             _store.Object,
             sessionIndexService: withIndex ? _index.Object : null,
             transcriptWatcher: withWatcher ? _watcher.Object : null,
-            activityService: withActivity ? _activity.Object : null,
-            collabService: null);
+            activityService: withActivity ? _activity.Object : null);
     }
 
     private static HookEvent SessionStart(string sessionId, string cwd, string? transcriptPath = null, DateTime? timestamp = null)
