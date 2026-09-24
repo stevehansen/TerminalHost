@@ -270,16 +270,16 @@
         <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Margin="8,4,8,8">
 
-                <!-- Collab Topics Section -->
-                <StackPanel Visibility="{Binding HasCollabTopics, Converter={StaticResource BoolToVisibilityConverter}}">
-                    <TextBlock Text="COLLAB TOPICS"
+                <!-- Parley Topics Section -->
+                <StackPanel Visibility="{Binding HasParleyTopics, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <TextBlock Text="PARLEY TOPICS"
                                Foreground="#CBD5E1"
                                FontWeight="SemiBold"
                                FontSize="12"
                                Margin="0,8,0,4"/>
-                    <ItemsControl ItemsSource="{Binding CollabTopics}">
+                    <ItemsControl ItemsSource="{Binding ParleyTopics}">
                         <ItemsControl.ItemTemplate>
-                            <DataTemplate DataType="{x:Type domain:CollabTopic}">
+                            <DataTemplate DataType="{x:Type domain:ParleyTopic}">
                                 <Border Background="#0A0E1A"
                                         BorderBrush="#1E293B"
                                         BorderThickness="1"
@@ -314,22 +314,34 @@
                                             </TextBlock>
                                         </Grid>
 
-                                        <!-- Subscriber badges -->
-                                        <ItemsControl ItemsSource="{Binding Subscribers}" Margin="0,4,0,0">
+                                        <!-- Subscriber badges (blue = connected, receives pushes) -->
+                                        <ItemsControl ItemsSource="{Binding SubscriberDetails}" Margin="0,4,0,0">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate>
                                                     <WrapPanel/>
                                                 </ItemsPanelTemplate>
                                             </ItemsControl.ItemsPanel>
                                             <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
+                                                <DataTemplate DataType="{x:Type domain:ParleySubscriber}">
                                                     <Border Background="#1E293B"
                                                             CornerRadius="3"
                                                             Padding="6,2"
                                                             Margin="0,0,4,0">
-                                                        <TextBlock Text="{Binding}"
-                                                                   Foreground="#60A5FA"
-                                                                   FontSize="10"/>
+                                                        <TextBlock Text="{Binding Name}"
+                                                                   FontSize="10">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Foreground" Value="#64748B"/>
+                                                                    <Setter Property="ToolTip" Value="Not connected (polls for messages)"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                                                            <Setter Property="Foreground" Value="#60A5FA"/>
+                                                                            <Setter Property="ToolTip" Value="Connected (messages are pushed)"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
                                                     </Border>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
@@ -341,16 +353,16 @@
                     </ItemsControl>
                 </StackPanel>
 
-                <!-- Collab Messages Section (bubble-up feed) -->
-                <StackPanel Visibility="{Binding HasCollabMessages, Converter={StaticResource BoolToVisibilityConverter}}">
+                <!-- Parley Messages Section (bubble-up feed) -->
+                <StackPanel Visibility="{Binding HasParleyMessages, Converter={StaticResource BoolToVisibilityConverter}}">
                     <TextBlock Text="MESSAGES"
                                Foreground="#CBD5E1"
                                FontWeight="SemiBold"
                                FontSize="12"
                                Margin="0,8,0,4"/>
-                    <ItemsControl ItemsSource="{Binding RecentCollabMessages}">
+                    <ItemsControl ItemsSource="{Binding RecentParleyMessages}">
                         <ItemsControl.ItemTemplate>
-                            <DataTemplate DataType="{x:Type domain:CollabMessage}">
+                            <DataTemplate DataType="{x:Type domain:ParleyMessage}">
                                 <Border CornerRadius="6"
                                         Padding="8,6"
                                         Margin="0,0,0,4"

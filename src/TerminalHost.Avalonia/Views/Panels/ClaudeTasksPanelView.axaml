@@ -336,12 +336,12 @@
             </Border>
           </StackPanel>
 
-          <!-- Collab Messages Section (bubble-up feed) -->
-          <StackPanel IsVisible="{Binding HasCollabMessages}" Margin="0,12,0,0">
+          <!-- Parley Messages Section (bubble-up feed) -->
+          <StackPanel IsVisible="{Binding HasParleyMessages}" Margin="0,12,0,0">
             <TextBlock Text="MESSAGES" Classes="section-header"/>
-            <ItemsControl ItemsSource="{Binding RecentCollabMessages}">
+            <ItemsControl ItemsSource="{Binding RecentParleyMessages}">
               <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="domain:CollabMessage">
+                <DataTemplate x:DataType="domain:ParleyMessage">
                   <Border Background="#1A1E293B" CornerRadius="6" Padding="8,6"
                           Margin="0,0,0,4" MaxWidth="320" HorizontalAlignment="Left">
                     <StackPanel>
@@ -368,13 +368,13 @@
             </ItemsControl>
           </StackPanel>
 
-          <!-- Collab Topics Section -->
-          <StackPanel IsVisible="{Binding HasCollabTopics}" Margin="0,12,0,0">
-            <TextBlock Text="COLLAB TOPICS" Classes="section-header"/>
+          <!-- Parley Topics Section -->
+          <StackPanel IsVisible="{Binding HasParleyTopics}" Margin="0,12,0,0">
+            <TextBlock Text="PARLEY TOPICS" Classes="section-header"/>
             <Border Classes="claude-container" Padding="0">
-              <ItemsControl ItemsSource="{Binding CollabTopics}">
+              <ItemsControl ItemsSource="{Binding ParleyTopics}">
                 <ItemsControl.ItemTemplate>
-                  <DataTemplate x:DataType="domain:CollabTopic">
+                  <DataTemplate x:DataType="domain:ParleyTopic">
                     <Border Classes="task-item">
                       <Grid ColumnDefinitions="*,Auto">
                         <StackPanel Grid.Column="0" Spacing="2">
@@ -383,6 +383,26 @@
                           <TextBlock Text="{Binding Description}" FontSize="11"
                                      Foreground="#64748B"
                                      IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                          <!-- Subscribers (blue = connected, receives pushes) -->
+                          <ItemsControl ItemsSource="{Binding SubscriberDetails}">
+                            <ItemsControl.ItemsPanel>
+                              <ItemsPanelTemplate>
+                                <WrapPanel/>
+                              </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate x:DataType="domain:ParleySubscriber">
+                                <Border Background="#1E293B" CornerRadius="3" Padding="6,2" Margin="0,2,4,0">
+                                  <Panel>
+                                    <TextBlock Text="{Binding Name}" FontSize="10" Foreground="#60A5FA"
+                                               IsVisible="{Binding IsConnected}"/>
+                                    <TextBlock Text="{Binding Name}" FontSize="10" Foreground="#64748B"
+                                               IsVisible="{Binding !IsConnected}"/>
+                                  </Panel>
+                                </Border>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
                         </StackPanel>
                         <Border Grid.Column="1" Background="#334155" CornerRadius="8"
                                 Padding="6,2" VerticalAlignment="Center">

@@ -138,7 +138,7 @@ Side panels and overlays for deeper inspection. New file: `panels.js`.
 - [x] Collab edge visualization framework (dashed gradient edges with topic labels and flow particles)
 - [x] Placeholder sessions: stub main agent when state unavailable (containerized sessions)
 - [x] Adaptive cluster spacing and final fit-to-view after all sessions load
-- [x] REST endpoints for collab: GET /api/collab/topics, GET /api/collab/sessions
+- [x] REST endpoints for collab: GET /api/collab/topics, GET /api/collab/sessions (now proxied from the [Parley](Parley.md) hub)
 - [x] Collab polling matches topic subscribers to canvas sessions by name/workingDir
 - [ ] Claude channels visualized as data flow between sessions
 

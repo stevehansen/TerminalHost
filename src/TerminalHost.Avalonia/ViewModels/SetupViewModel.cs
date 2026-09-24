@@ -91,13 +91,12 @@ public partial class SetupViewModel : ObservableObject
 
         Dependencies.Add(new Dependency
         {
-            Name = "MCP Collab Server",
-            Description = "Registers TerminalHost collaboration tools in Claude Code.",
-            DetectionCommand = "claude mcp list",
-            DetectionOutputContains = "terminalhost-collab",
-            InstallCommand = "claude mcp add --transport http terminalhost-collab http://localhost:19280/api/mcp -s user",
-            HomepageUrl = "https://docs.anthropic.com/en/docs/claude-code",
-            InstallUrl = "https://docs.anthropic.com/en/docs/claude-code"
+            Name = "Parley (optional)",
+            Description = "Pub/sub messaging between AI sessions; messages can be pushed into Claude Code sessions.",
+            DetectionCommand = "parley --version",
+            InstallCommand = "dotnet tool install -g HC.Parley",
+            HomepageUrl = "https://github.com/stevehansen/parley",
+            InstallUrl = "https://github.com/stevehansen/parley"
         });
 
         Dependencies.Add(new Dependency

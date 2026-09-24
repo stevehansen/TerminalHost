@@ -90,6 +90,7 @@ public partial class App : Application
                 // Auto-start API server if enabled
                 _ = AutoStartApiServerAsync();
                 _ = AutoConnectMemoryAsync();
+                _services?.GetService<IParleyService>()?.ApplySettings();
             }
 
             // Handle dock icon click on macOS — restore minimized window
@@ -149,6 +150,7 @@ public partial class App : Application
             // Auto-start API server if enabled
             _ = AutoStartApiServerAsync();
             _ = AutoConnectMemoryAsync();
+            _services?.GetService<IParleyService>()?.ApplySettings();
         };
 
         desktop.MainWindow = setupWindow;
@@ -183,6 +185,7 @@ public partial class App : Application
         services.AddSingleton<ISessionManager, SessionManager>();
 
         // Terminal Services
+        services.AddSingleton<TerminalHost.Core.Services.ParleyLaunchIntegration>();
         services.AddSingleton<ITerminalControlFactory, TerminalControlFactory>();
         services.AddSingleton<ICommandComposer>(_ => CommandComposerFactory.ForCurrentOs());
 
@@ -262,8 +265,7 @@ public partial class App : Application
         services.AddSingleton<ExplorerEventRouter>();
         services.AddSingleton<LinkClickHandler>();
         services.AddSingleton<IWebhookDeliveryService, WebhookDeliveryService>();
-        services.AddSingleton<ICollabService, CollabService>();
-        services.AddSingleton<McpHandler>();
+        services.AddSingleton<IParleyService, TerminalHost.Core.Services.HttpParleyService>();
         services.AddSingleton<ApiServer>();
         services.AddSingleton<IApiServer>(sp => sp.GetRequiredService<ApiServer>());
         services.AddSingleton<IDebugLogService, TerminalHost.Core.Services.DebugLogService>();

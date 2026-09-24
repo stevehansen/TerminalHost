@@ -46,6 +46,8 @@ public sealed class ConfigurationService : IConfigurationService
             Save(config); // Save after adding the default profile
         }
         config.Settings.Memory.EnsureDefaults();
+        config.Settings.Parley ??= new ParleySettings();
+        config.Settings.Parley.EnsureDefaults();
         return config;
     }
 

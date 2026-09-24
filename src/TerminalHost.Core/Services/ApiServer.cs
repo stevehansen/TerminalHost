@@ -33,11 +33,10 @@ public class ApiServer : IApiServer
     private readonly IGitStatusService? _gitStatusService;
     private readonly ITimelineService? _timelineService;
     private readonly ITaskAggregator? _taskAggregator;
-    private readonly McpHandler? _mcpHandler;
     private readonly IClipboardService? _clipboardService;
     private readonly ISessionLifecycleCoordinator? _coord;
     private readonly ISessionArchiveService? _sessionArchiveService;
-    private readonly ICollabService? _collabService;
+    private readonly IParleyService? _parleyService;
     private readonly IEidetService? _eidetService;
 
     private HttpListener? _listener;
@@ -94,11 +93,10 @@ public class ApiServer : IApiServer
         IGitStatusService? gitStatusService = null,
         ITimelineService? timelineService = null,
         ITaskAggregator? taskAggregator = null,
-        McpHandler? mcpHandler = null,
         IClipboardService? clipboardService = null,
         ISessionLifecycleCoordinator? sessionCoordinator = null,
         ISessionArchiveService? sessionArchiveService = null,
-        ICollabService? collabService = null,
+        IParleyService? parleyService = null,
         IEidetService? eidetService = null)
     {
         _configService = configService;
@@ -107,11 +105,10 @@ public class ApiServer : IApiServer
         _gitStatusService = gitStatusService;
         _timelineService = timelineService;
         _taskAggregator = taskAggregator;
-        _mcpHandler = mcpHandler;
         _clipboardService = clipboardService;
         _coord = sessionCoordinator;
         _sessionArchiveService = sessionArchiveService;
-        _collabService = collabService;
+        _parleyService = parleyService;
         _eidetService = eidetService;
     }
 
@@ -265,21 +262,6 @@ public class ApiServer : IApiServer
             // Route dispatch
             var path = request.Url?.AbsolutePath ?? "/";
             var method = request.HttpMethod;
-
-            // MCP endpoint — POST for JSON-RPC, GET returns 405 per MCP Streamable HTTP spec
-            if (path == "/api/mcp")
-            {
-                if (method == "POST")
-                {
-                    await HandleMcpAsync(request, response, ct);
-                    return;
-                }
-                // GET /api/mcp is allowed by spec to return 405 if server doesn't offer SSE on this endpoint
-                response.StatusCode = 405;
-                response.Headers.Add("Allow", "POST");
-                response.Close();
-                return;
-            }
 
             // Channel endpoints — POST for pushing messages/replies into the event system
             if (path == "/api/channel/message" && method == "POST")
@@ -841,31 +823,26 @@ public class ApiServer : IApiServer
         await WriteJson(response, new { sessions });
     }
 
+    // /api/collab/* predate Parley; they now proxy the Parley hub in the shape web/spark expects.
     private async Task HandleCollabTopicsAsync(HttpListenerResponse response)
     {
-        if (_collabService == null)
+        if (_parleyService == null)
         {
-            await WriteJsonError(response, 404, "NOT_AVAILABLE", "Collab service not available");
+            await WriteJsonError(response, 404, "NOT_AVAILABLE", "Parley client not available");
             return;
         }
 
-        var collabSessions = _collabService.GetSessions();
-        var topics = _collabService.GetTopics().Select(t => new
+        var topics = (await _parleyService.GetTopicsAsync()).Select(t => new
         {
             name = t.Name,
             description = t.Description,
-            subscribers = t.Subscribers.ToList(),
-            // Enriched subscriber info with identity fields
-            subscriberDetails = t.Subscribers.Select(subName =>
+            subscribers = t.Subscribers,
+            subscriberDetails = t.SubscriberDetails.Select(d => new
             {
-                var cs = collabSessions.FirstOrDefault(s => s.Name == subName);
-                return new
-                {
-                    name = subName,
-                    claudeSessionId = cs?.ClaudeSessionId,
-                    projectName = cs?.ProjectName,
-                    workingDir = cs?.WorkingDir
-                };
+                name = d.Name,
+                projectName = d.ProjectName,
+                workingDir = d.WorkingDir,
+                connected = d.IsConnected
             }).ToList(),
             createdBy = t.CreatedBy,
             messageCount = t.MessageCount,
@@ -876,19 +853,19 @@ public class ApiServer : IApiServer
 
     private async Task HandleCollabSessionsAsync(HttpListenerResponse response)
     {
-        if (_collabService == null)
+        if (_parleyService == null)
         {
-            await WriteJsonError(response, 404, "NOT_AVAILABLE", "Collab service not available");
+            await WriteJsonError(response, 404, "NOT_AVAILABLE", "Parley client not available");
             return;
         }
 
-        var sessions = _collabService.GetSessions().Select(s => new
+        var sessions = (await _parleyService.GetSessionsAsync()).Select(s => new
         {
             name = s.Name,
             workingDir = s.WorkingDir,
-            claudeSessionId = s.ClaudeSessionId,
             projectName = s.ProjectName,
-            lastSeen = s.LastSeen
+            lastSeen = s.LastSeen,
+            connected = s.IsConnected
         });
         await WriteJson(response, new { sessions });
     }
@@ -1034,50 +1011,6 @@ public class ApiServer : IApiServer
     {
         if (string.IsNullOrEmpty(path)) return "";
         return RepoIdNormalizer.Normalize(path);
-    }
-
-    #endregion
-
-    #region MCP Handler
-
-    private async Task HandleMcpAsync(HttpListenerRequest request, HttpListenerResponse response, CancellationToken ct)
-    {
-        if (_mcpHandler == null)
-        {
-            await WriteJsonError(response, 501, "NOT_IMPLEMENTED", "MCP handler is not configured.");
-            return;
-        }
-
-        string body;
-        using (var reader = new StreamReader(request.InputStream, request.ContentEncoding))
-        {
-            body = await reader.ReadToEndAsync();
-        }
-
-        var sessionHint = request.Headers["X-Session"]; // null if not provided (global config)
-        var mcpSessionId = request.Headers["Mcp-Session-Id"]; // null on first request
-        var workingDirHint = request.Headers["X-Working-Dir"]; // fallback for working directory (from Channel bridge)
-        var result = await _mcpHandler.HandleRequestAsync(body, sessionHint, mcpSessionId, workingDirHint, ct);
-
-        // Set Mcp-Session-Id header if assigned
-        if (!string.IsNullOrEmpty(result.McpSessionId))
-        {
-            response.Headers.Add("Mcp-Session-Id", result.McpSessionId);
-        }
-
-        if (result.ResponseBody == null)
-        {
-            // Notification — no response body
-            response.StatusCode = 202;
-            response.Close();
-            return;
-        }
-
-        response.ContentType = "application/json";
-        response.StatusCode = 200;
-        var bytes = Encoding.UTF8.GetBytes(result.ResponseBody);
-        response.ContentLength64 = bytes.Length;
-        await response.OutputStream.WriteAsync(bytes);
     }
 
     #endregion
@@ -1634,8 +1567,7 @@ echo "=== Setup complete! Restart Claude Code to activate hooks. ==="
             // file:// origins send "null" — respond with "*" since "null" isn't a valid ACAO value
             response.Headers.Add("Access-Control-Allow-Origin", origin == "null" ? "*" : origin);
             response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-            response.Headers.Add("Access-Control-Allow-Headers", "Authorization, Content-Type, Last-Event-ID, X-Session, Mcp-Session-Id, X-Working-Dir");
-            response.Headers.Add("Access-Control-Expose-Headers", "Mcp-Session-Id");
+            response.Headers.Add("Access-Control-Allow-Headers", "Authorization, Content-Type, Last-Event-ID");
             response.Headers.Add("Access-Control-Max-Age", "86400");
         }
     }

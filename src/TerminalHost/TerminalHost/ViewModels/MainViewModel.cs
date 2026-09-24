@@ -2692,6 +2692,27 @@ public partial class MainViewModel : ObservableObject
         _toastService.Show($"Channel integration {status}. Restart Claude Code terminals to apply.", ToastType.Info);
     }
 
+    internal void ToggleParleyIntegration()
+    {
+        var config = _configService.Load();
+        config.Settings.Parley.Enabled = !config.Settings.Parley.Enabled;
+        _configService.Save(config);
+        App.Current?.Services?.GetService<IParleyService>()?.ApplySettings();
+
+        var status = config.Settings.Parley.Enabled ? "enabled" : "disabled";
+        _toastService.Show($"Parley integration {status}. Restart AI terminals to apply.", ToastType.Info);
+    }
+
+    internal void ToggleParleyPushViaChannels()
+    {
+        var config = _configService.Load();
+        config.Settings.Parley.PushViaChannels = !config.Settings.Parley.PushViaChannels;
+        _configService.Save(config);
+
+        var status = config.Settings.Parley.PushViaChannels ? "enabled" : "disabled";
+        _toastService.Show($"Parley push via channels {status}. Restart Claude Code terminals to apply.", ToastType.Info);
+    }
+
     private (IReadOnlyList<ProjectTabApiState> Tabs, int SelectedIndex) SnapshotProjectTabs()
     {
         var tabs = Tabs.OfType<TerminalPairTabViewModel>().ToList();

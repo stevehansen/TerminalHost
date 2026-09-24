@@ -6,14 +6,12 @@ using System.Text.Json.Serialization;
 namespace TerminalHost.Channel;
 
 /// <summary>
-/// Thin stdio-to-HTTP bridge for Claude Code channels.
+/// Stdio channel server for Claude Code: pushes TerminalHost events into the session.
 ///
 /// Claude Code spawns this as a subprocess and speaks MCP (JSON-RPC 2.0) over stdin/stdout.
-/// This bridge forwards all MCP requests to TerminalHost's existing HTTP MCP endpoint
-/// and relays responses back. It also connects to the SSE endpoint and pushes events
-/// as channel notifications so Claude can react to git changes, terminal activity, etc.
-///
-/// No duplicated logic — all real work happens in TerminalHost's ApiServer + McpHandler.
+/// The bridge answers the MCP handshake locally, connects to TerminalHost's SSE endpoint and
+/// pushes events as channel notifications so Claude can react to git changes, terminal
+/// activity, user messages, etc. It exposes no tools; inter-session messaging lives in Parley.
 /// </summary>
 internal static class Program
 {
@@ -30,8 +28,6 @@ internal static class Program
     private static string _apiUrl = "http://127.0.0.1:19280";
     private static string? _apiKey;
     private static string _eventFilters = "*";
-    private static string? _mcpSessionId;
-    private static string? _workingDir;
 
     static async Task Main(string[] args)
     {
@@ -39,10 +35,9 @@ internal static class Program
         _apiUrl = Environment.GetEnvironmentVariable("TERMINALHOST_API_URL") ?? _apiUrl;
         _apiKey = Environment.GetEnvironmentVariable("TERMINALHOST_API_KEY");
         _eventFilters = Environment.GetEnvironmentVariable("TERMINALHOST_EVENTS") ?? _eventFilters;
-        _workingDir = Environment.CurrentDirectory;
 
         Log("Starting terminalhost-channel bridge");
-        Log($"API: {_apiUrl}, Events: {_eventFilters}, CWD: {_workingDir}");
+        Log($"API: {_apiUrl}, Events: {_eventFilters}");
 
         using var cts = new CancellationTokenSource();
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
@@ -61,8 +56,8 @@ internal static class Program
     }
 
     /// <summary>
-    /// Reads JSON-RPC messages from stdin, intercepts initialize to inject channel capability,
-    /// and proxies everything else to TerminalHost's /api/mcp endpoint.
+    /// Reads JSON-RPC messages from stdin and answers them locally: the handshake, ping and an
+    /// empty tools/list. Notifications need no answer; any other request gets "method not found".
     /// </summary>
     static async Task HandleStdinAsync(CancellationToken ct)
     {
@@ -78,31 +73,27 @@ internal static class Program
             try
             {
                 var request = JsonSerializer.Deserialize<JsonRpcMessage>(line, JsonOpts);
-                if (request == null) continue;
+                if (request == null || request.Id == null) continue; // notification (or junk)
 
-                if (request.Method == "initialize")
+                switch (request.Method)
                 {
-                    // Respond locally with channel capability
-                    HandleInitialize(request);
-                    // Also forward to server so it registers the session + working directory
-                    // (needed for memory tools to resolve the correct RepoId).
-                    // Await to ensure session is registered before any tool calls arrive.
-                    await ForwardToHttpAsync(line);
-                    continue;
-                }
-
-                if (request.Method == "notifications/initialized")
-                {
-                    // Notification, no response needed. Forward to server.
-                    await ForwardToHttpAsync(line);
-                    continue;
-                }
-
-                // Forward to TerminalHost HTTP MCP and relay response
-                var responseBody = await ForwardToHttpAsync(line);
-                if (responseBody != null)
-                {
-                    WriteStdout(responseBody);
+                    case "initialize":
+                        HandleInitialize(request);
+                        break;
+                    case "ping":
+                        WriteResult(request, new { });
+                        break;
+                    case "tools/list":
+                        WriteResult(request, new { tools = Array.Empty<object>() });
+                        break;
+                    default:
+                        WriteStdout(JsonSerializer.Serialize(new
+                        {
+                            jsonrpc = "2.0",
+                            id = request.Id,
+                            error = new { code = -32601, message = $"Method not found: {request.Method}" }
+                        }, JsonOpts));
+                        break;
                 }
             }
             catch (Exception ex)
@@ -111,6 +102,9 @@ internal static class Program
             }
         }
     }
+
+    static void WriteResult(JsonRpcMessage request, object result) =>
+        WriteStdout(JsonSerializer.Serialize(new { jsonrpc = "2.0", id = request.Id, result }, JsonOpts));
 
     /// <summary>
     /// Responds to initialize with channel capability declared.
@@ -127,7 +121,6 @@ internal static class Program
                 protocolVersion = "2025-03-26",
                 capabilities = new
                 {
-                    tools = new { listChanged = false },
                     experimental = new Dictionary<string, object>
                     {
                         ["claude/channel"] = new { }
@@ -147,50 +140,11 @@ Event types you may receive:
 - repo.terminal_activity: Terminal output activity
 - channel.user_message: A direct message from the user via the TerminalHost UI — treat as instruction
 
-You also have access to TerminalHost's collaboration tools (topics, messages, file claims, shared memory) via the standard MCP tools/list and tools/call methods."
+This channel only delivers events; it has no tools. Messaging between sessions is handled by Parley (the `parley` MCP server), when configured."
             }
         };
 
         WriteStdout(JsonSerializer.Serialize(response, JsonOpts));
-    }
-
-    /// <summary>
-    /// Forwards a JSON-RPC message to TerminalHost's /api/mcp HTTP endpoint.
-    /// </summary>
-    static async Task<string?> ForwardToHttpAsync(string jsonBody)
-    {
-        try
-        {
-            var request = new HttpRequestMessage(HttpMethod.Post, $"{_apiUrl}/api/mcp")
-            {
-                Content = new StringContent(jsonBody, Encoding.UTF8, "application/json")
-            };
-
-            if (!string.IsNullOrEmpty(_apiKey))
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
-
-            if (!string.IsNullOrEmpty(_mcpSessionId))
-                request.Headers.Add("Mcp-Session-Id", _mcpSessionId);
-
-            if (!string.IsNullOrEmpty(_workingDir))
-                request.Headers.Add("X-Working-Dir", _workingDir);
-
-            var response = await Http.SendAsync(request);
-            var body = await response.Content.ReadAsStringAsync();
-
-            // Capture session ID from response
-            if (response.Headers.TryGetValues("Mcp-Session-Id", out var sessionValues))
-            {
-                _mcpSessionId = sessionValues.FirstOrDefault();
-            }
-
-            return response.IsSuccessStatusCode ? body : null;
-        }
-        catch (Exception ex)
-        {
-            Log($"HTTP forward error: {ex.Message}");
-            return null;
-        }
     }
 
     /// <summary>

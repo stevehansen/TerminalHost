@@ -119,7 +119,9 @@ Any tool inside the container that uses standard clipboard commands transparentl
 
 ## MCP Server URL Rewriting
 
-MCP servers registered at user level (e.g., `terminalhost-collab` at `http://localhost:19280/api/mcp`) use `localhost` which resolves to the container itself, not the host.
+MCP servers registered at user level with an HTTP URL (e.g., `http://localhost:<port>/mcp`) use `localhost` which resolves to the container itself, not the host.
+
+> **Parley** is registered as a stdio server (`parley mcp`), so it only works in a container whose image has the `parley` tool and can reach a hub; the hub binds to loopback on the host, so containerized sessions currently can't join host topics.
 
 TerminalHost generates a `.claude.json` overlay that replaces:
 - `http://localhost:` → `http://host.docker.internal:`

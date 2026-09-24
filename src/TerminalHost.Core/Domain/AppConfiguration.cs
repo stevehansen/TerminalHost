@@ -732,6 +732,12 @@ public class AppSettings
     [JsonPropertyName("memory")]
     public MemorySettings Memory { get; set; } = new();
 
+    /// <summary>
+    /// Parley inter-session messaging settings (external hub + MCP shim).
+    /// </summary>
+    [JsonPropertyName("parley")]
+    public ParleySettings Parley { get; set; } = new();
+
     private static List<string> GetDefaultKeyBranches() =>
     [
         "main",

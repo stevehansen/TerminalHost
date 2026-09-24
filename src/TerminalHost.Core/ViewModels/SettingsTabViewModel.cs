@@ -58,6 +58,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     private readonly IContainerConfiguration? _containerConfig;
     private readonly ClaudeMdInstructionsService? _claudeMdService;
     private readonly IEidetService? _eidetService;
+    private readonly IParleyService? _parleyService;
     private string _originalJson = "";
 
     [ObservableProperty]
@@ -561,17 +562,29 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private bool _claudeMdCanRemove;
 
-    // MCP Collab integration
+    // Parley integration (inter-session messaging, external tool)
     [ObservableProperty]
-    private bool _mcpCollabInstalled;
+    private bool _parleyEnabled = true;
 
     [ObservableProperty]
-    private bool _mcpCollabDetecting;
+    private string _parleyHubUrl = ParleySettings.DefaultHubUrl;
 
     [ObservableProperty]
-    private string _mcpCollabStatus = "";
+    private bool _parleyPushViaChannels;
 
-    public string McpCollabUrl => $"http://localhost:{ApiPort}/api/mcp";
+    [ObservableProperty]
+    private bool _parleyInstalled;
+
+    [ObservableProperty]
+    private bool _parleyHubRunning;
+
+    [ObservableProperty]
+    private bool _parleyDetecting;
+
+    [ObservableProperty]
+    private string _parleyStatus = "";
+
+    public string ParleyInstallButtonText => ParleyInstalled ? "Update Parley" : "Install Parley";
 
     /// <summary>
     /// Whether an API key is required (non-loopback bind address).
@@ -606,7 +619,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     public SettingsTabViewModel(IConfigurationService configService, IDialogService dialogService, IToastService toastService,
         IProcessService? processService = null, IClipboardService? clipboardService = null,
         IContainerService? containerService = null, IFileSystem? fileSystem = null,
-        IEidetService? eidetService = null, IContainerConfiguration? containerConfig = null)
+        IEidetService? eidetService = null, IContainerConfiguration? containerConfig = null,
+        IParleyService? parleyService = null)
     {
         _configService = configService;
         _dialogService = dialogService;
@@ -617,6 +631,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         _containerConfig = containerConfig;
         _claudeMdService = fileSystem != null ? new ClaudeMdInstructionsService(fileSystem) : null;
         _eidetService = eidetService;
+        _parleyService = parleyService;
         LoadSettings();
     }
 
@@ -634,11 +649,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             // Load rich mode properties from JSON
             LoadRichModeProperties();
 
-            // Fire-and-forget MCP collab detection
-            if (_processService != null)
-            {
-                _ = DetectMcpCollabAsync();
-            }
+            // Fire-and-forget Parley tool/hub detection
+            _ = DetectParleyAsync();
 
             JsonTextReloaded?.Invoke(this, EventArgs.Empty);
         }
@@ -750,6 +762,13 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             MemoryEnabled = config.Settings.Memory.Enabled;
             EidetUrl = config.Settings.Memory.EidetUrl;
             // MemoryStatusText is populated externally via UpdateMemoryStatus()
+
+            // Parley settings
+            var parley = config.Settings.Parley ?? new ParleySettings();
+            parley.EnsureDefaults();
+            ParleyEnabled = parley.Enabled;
+            ParleyHubUrl = parley.HubUrl;
+            ParleyPushViaChannels = parley.PushViaChannels;
             RefreshClaudeMdStatus();
 
             // Directory settings
@@ -862,6 +881,12 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             config.Settings.Memory.Enabled = MemoryEnabled;
             config.Settings.Memory.EidetUrl = EidetUrl;
 
+            // Parley settings
+            config.Settings.Parley ??= new ParleySettings();
+            config.Settings.Parley.Enabled = ParleyEnabled;
+            config.Settings.Parley.HubUrl = string.IsNullOrWhiteSpace(ParleyHubUrl) ? ParleySettings.DefaultHubUrl : ParleyHubUrl.Trim();
+            config.Settings.Parley.PushViaChannels = ParleyPushViaChannels;
+
             // Directory settings (update current if selected)
             if (SelectedDirectory != null && CurrentDirectorySettings != null)
             {
@@ -951,7 +976,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
 
     // API & Webhooks change handlers
     partial void OnApiEnabledChanged(bool value) => MarkDirtyFromRichMode();
-    partial void OnApiPortChanged(int value) { OnPropertyChanged(nameof(McpCollabUrl)); MarkDirtyFromRichMode(); }
+    partial void OnApiPortChanged(int value) => MarkDirtyFromRichMode();
     partial void OnApiBindAddressChanged(string value) { OnPropertyChanged(nameof(IsApiKeyRequired)); MarkDirtyFromRichMode(); }
     partial void OnApiKeyChanged(string value) => MarkDirtyFromRichMode();
     partial void OnApiEnableSseChanged(bool value) => MarkDirtyFromRichMode();
@@ -1363,7 +1388,12 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         SyncRichModeToJson();
     }
 
-    // MCP Collab integration commands
+    // Parley integration commands
+
+    partial void OnParleyEnabledChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnParleyHubUrlChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnParleyPushViaChannelsChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnParleyInstalledChanged(bool value) => OnPropertyChanged(nameof(ParleyInstallButtonText));
 
     /// <summary>
     /// Gets the shell executable and argument format for running commands on the current platform.
@@ -1378,94 +1408,68 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         return ("/bin/zsh", $"-il -c \"{command.Replace("\"", "\\\"")}\"");
     }
 
+    /// <summary>Checks whether the parley tool is installed and whether its hub answers.</summary>
     [RelayCommand]
-    private async Task DetectMcpCollabAsync()
+    private async Task DetectParleyAsync()
     {
-        if (_processService == null) return;
-
-        McpCollabDetecting = true;
+        if (ParleyDetecting) return;
+        ParleyDetecting = true;
         try
         {
-            var (shell, args) = GetShellCommand("claude mcp list");
-            var (exitCode, output, error) = await _processService.RunAsync(shell, args);
+            var hubTask = _parleyService?.GetHubVersionAsync(ParleyHubUrl) ?? Task.FromResult<string?>(null);
+            string? toolVersion = null;
+            if (_processService != null)
+            {
+                try
+                {
+                    var (shell, args) = GetShellCommand("parley --version");
+                    var (exitCode, output, _) = await _processService.RunAsync(shell, args, timeout: TimeSpan.FromSeconds(15));
+                    if (exitCode == 0) toolVersion = output.Trim();
+                }
+                catch
+                {
+                    // Treated as not installed
+                }
+            }
+            var hubVersion = await hubTask;
 
-            var combined = output + error;
-            McpCollabInstalled = combined.Contains("terminalhost-collab", StringComparison.OrdinalIgnoreCase);
-            McpCollabStatus = McpCollabInstalled ? "Installed" : "Not registered";
-        }
-        catch
-        {
-            McpCollabInstalled = false;
-            McpCollabStatus = "Detection failed";
+            ParleyInstalled = toolVersion != null;
+            ParleyHubRunning = hubVersion != null;
+            var tool = ParleyInstalled ? $"Tool installed ({toolVersion})" : "Tool not installed";
+            var hub = ParleyHubRunning
+                ? $"hub running (v{hubVersion})"
+                : "hub not running (starts with the first session that uses Parley)";
+            ParleyStatus = $"{tool} · {hub}";
         }
         finally
         {
-            McpCollabDetecting = false;
+            ParleyDetecting = false;
         }
     }
 
+    /// <summary>Installs or updates the Parley dotnet tool (HC.Parley).</summary>
     [RelayCommand]
-    private async Task InstallMcpCollabAsync()
+    private async Task InstallParleyAsync()
     {
         if (_processService == null) return;
 
+        var verb = ParleyInstalled ? "update" : "install";
+        using var toast = _toastService.ShowProgress(ParleyInstalled ? "Updating Parley..." : "Installing Parley...");
         try
         {
-            var url = McpCollabUrl;
-            var (shell, args) = GetShellCommand($"claude mcp add --transport http terminalhost-collab {url} -s user");
-            var (exitCode, output, error) = await _processService.RunAsync(shell, args);
-
+            var (shell, args) = GetShellCommand($"dotnet tool {verb} -g HC.Parley");
+            var (exitCode, output, error) = await _processService.RunAsync(shell, args, timeout: TimeSpan.FromMinutes(3));
             if (exitCode == 0)
-            {
-                _toastService.Show("MCP Collab server registered in Claude Code", ToastType.Success);
-            }
+                toast.Complete(ParleyInstalled ? "Parley updated" : "Parley installed");
             else
-            {
-                _toastService.Show($"MCP registration failed: {error}", ToastType.Error);
-            }
+                toast.Fail($"dotnet tool {verb} failed: {(string.IsNullOrWhiteSpace(error) ? output : error).Trim()}");
         }
         catch (Exception ex)
         {
-            _toastService.Show($"MCP registration failed: {ex.Message}", ToastType.Error);
+            toast.Fail($"dotnet tool {verb} failed: {ex.Message}");
         }
 
-        await DetectMcpCollabAsync();
-    }
-
-    [RelayCommand]
-    private async Task UninstallMcpCollabAsync()
-    {
-        if (_processService == null) return;
-
-        try
-        {
-            var (shell, args) = GetShellCommand("claude mcp remove terminalhost-collab -s user");
-            var (exitCode, output, error) = await _processService.RunAsync(shell, args);
-
-            if (exitCode == 0)
-            {
-                _toastService.Show("MCP Collab server removed from Claude Code", ToastType.Success);
-            }
-            else
-            {
-                _toastService.Show($"MCP removal failed: {error}", ToastType.Error);
-            }
-        }
-        catch (Exception ex)
-        {
-            _toastService.Show($"MCP removal failed: {ex.Message}", ToastType.Error);
-        }
-
-        await DetectMcpCollabAsync();
-    }
-
-    [RelayCommand]
-    private async Task CopyMcpCollabUrlAsync()
-    {
-        if (_clipboardService == null) return;
-
-        await _clipboardService.SetTextAsync(McpCollabUrl);
-        _toastService.Show("MCP URL copied to clipboard", ToastType.Success);
+        await DetectParleyAsync();
     }
 
     // Shortcut conflict detection

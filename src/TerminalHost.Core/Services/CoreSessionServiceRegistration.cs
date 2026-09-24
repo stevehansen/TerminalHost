@@ -28,8 +28,7 @@ public static class CoreSessionServiceRegistration
             sp.GetRequiredService<ISessionStateStore>(),
             sp.GetService<IClaudeSessionIndexService>(),
             sp.GetService<ITranscriptWatcher>(),
-            sp.GetRequiredService<SessionActivityService>(),
-            sp.GetService<ICollabService>()));
+            sp.GetRequiredService<SessionActivityService>()));
         // Bridge the internal interface to the concrete so consumers inside Core
         // (which still type-against the interface) keep working.
         services.AddSingleton<ILiveSessionTracker>(sp => sp.GetRequiredService<LiveSessionTracker>());

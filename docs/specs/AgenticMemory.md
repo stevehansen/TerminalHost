@@ -131,7 +131,7 @@ TerminalHost does **not** proxy memory MCP tools. AI clients connect to Eidet's 
 }
 ```
 
-Eidet's MCP server uses the current working directory to determine the repo. TerminalHost's `McpHandler` has no memory tool references.
+Eidet's MCP server uses the current working directory to determine the repo. TerminalHost's `McpHandler` has no memory tool references. (`McpHandler` and `/api/mcp` were later removed entirely when collab moved to [Parley](Parley.md).)
 
 ### 4. Memory REST API — Thin Proxy for UI
 

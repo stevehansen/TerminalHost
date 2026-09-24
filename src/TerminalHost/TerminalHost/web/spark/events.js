@@ -602,7 +602,7 @@ function toggleMultiMode() {
     saveSparkState();
 }
 
-// ─── Collab Polling (Inter-Session Communication) ───────
+// ─── Collab Polling (Inter-Session Communication via Parley) ───────
 
 async function startCollabPolling() {
     stopCollabPolling();
@@ -636,7 +636,7 @@ async function pollCollab() {
         collabFailCount = 0;
         const topicsData = await topicsResp.json();
 
-        // Also fetch collab sessions to map collab names → working directories
+        // Also fetch Parley sessions to map session names → working directories
         let collabSessions = [];
         try {
             const csResp = await fetch(`${apiBase}/api/collab/sessions`);
