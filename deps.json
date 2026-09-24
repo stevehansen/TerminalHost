@@ -166,13 +166,13 @@
   },
   {
     "pname": "LibGit2Sharp",
-    "version": "0.31.0",
-    "hash": "sha256-AvvsA3dsDbcGNjpxWXO5F1iw8bhrctaWQ0MD2oJSyJA="
+    "version": "0.32.0",
+    "hash": "sha256-FuReHhQx6b3WnqPWnid56lo69+tq5z6Gj+Rw8uTDrz4="
   },
   {
     "pname": "LibGit2Sharp.NativeBinaries",
-    "version": "2.0.323",
-    "hash": "sha256-0qFqyNC0u05UF+DJ/LNvng5Sur1ryci+wIEGhVU/7rE="
+    "version": "2.0.324",
+    "hash": "sha256-x7sO2IPcDtYw2kGgX42XzF9tc6bn1Q2zon1UQ7ymv34="
   },
   {
     "pname": "LiveChartsCore",
