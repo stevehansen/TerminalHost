@@ -13,18 +13,18 @@ The solution now contains four projects:
 ```
 TerminalHost/
 ├── src/
-│   ├── TerminalHost.Core/           # Platform-agnostic library (.NET 8)
+│   ├── TerminalHost.Core/           # Platform-agnostic library (.NET 10)
 │   │   ├── Domain/                  # 44 domain models
 │   │   ├── Interfaces/              # 23 service interfaces
 │   │   ├── Services/                # 17 service implementations
 │   │   └── ViewModels/              # 5 portable ViewModels
 │   │
-│   ├── TerminalHost.Windows/        # Windows-specific library (.NET 8 Windows)
+│   ├── TerminalHost.Windows/        # Windows-specific library (.NET 10 Windows)
 │   │   ├── Interfaces/              # 1 Windows-specific interface
 │   │   ├── Services/                # 4 Windows service implementations
 │   │   └── Platform/                # 1 P/Invoke helper
 │   │
-│   └── TerminalHost/                # Main WPF application (.NET 8 Windows)
+│   └── TerminalHost/                # Main WPF application (.NET 10 Windows)
 │       ├── Domain/                  # WPF-coupled domain models
 │       ├── Services/                # WPF-coupled services
 │       ├── ViewModels/              # WPF-coupled ViewModels
@@ -240,20 +240,20 @@ The biggest challenge - replacing `EasyWindowsTerminalControl`:
 ## Dependencies
 
 ### TerminalHost.Core
-- `net8.0` (cross-platform)
+- `net10.0` (cross-platform)
 - CommunityToolkit.Mvvm 8.4.0
 - Markdig 0.44.0
 - Markdig.SyntaxHighlighting 1.1.7
 - LiveChartsCore.SkiaSharpView 2.0.0-rc4.5
 
 ### TerminalHost.Windows
-- `net8.0-windows`
+- `net10.0-windows`
 - TerminalHost.Core (project reference)
 - Hardcodet.NotifyIcon.Wpf 2.0.1
 - EasyWindowsTerminalControl 1.0.9
 
 ### TerminalHost (Main App)
-- `net8.0-windows`
+- `net10.0-windows`
 - TerminalHost.Core (project reference)
 - TerminalHost.Windows (project reference)
 - All Windows-specific NuGet packages

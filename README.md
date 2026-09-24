@@ -8,8 +8,8 @@ It's designed for developers who work with AI coding assistants and need to seam
 
 | Platform | Executable | UI Framework | Shell |
 |----------|------------|--------------|-------|
-| **Windows** | `host.exe` | WPF (.NET 8) | PowerShell |
-| **macOS** | `host` | Avalonia (.NET 8) | zsh |
+| **Windows** | `host.exe` | WPF (.NET 10) | PowerShell |
+| **macOS** | `host` | Avalonia (.NET 10) | zsh |
 
 Both versions share the same core functionality and configuration format.
 
@@ -186,7 +186,7 @@ The configuration allows you to customize:
 
 | Component | Windows | macOS |
 |-----------|---------|-------|
-| **UI Framework** | WPF (.NET 8) | Avalonia (.NET 8) |
+| **UI Framework** | WPF (.NET 10) | Avalonia (.NET 10) |
 | **Terminal Control** | EasyWindowsTerminalControl | Native PTY via Python helper |
 | **MVVM** | CommunityToolkit.Mvvm | CommunityToolkit.Mvvm |
 | **Single Instance** | Mutex + Named Pipes | Unix Domain Sockets |

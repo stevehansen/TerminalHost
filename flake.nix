@@ -11,7 +11,7 @@
     {
       packages = forEachSupportedSystem ({ pkgs }:
         let
-          dotnet = with pkgs.dotnetCorePackages; combinePackages [ sdk_8_0 sdk_10_0 ];
+          dotnet = with pkgs.dotnetCorePackages; combinePackages [ sdk_10_0 ];
           linuxDeps = import ./nix/linux-deps.nix pkgs;
         in
         {
@@ -22,7 +22,7 @@
             projectFile = "src/TerminalHost.Avalonia/TerminalHost.Avalonia.csproj";
             nugetDeps = ./deps.json;
             dotnet-sdk = dotnet;
-            dotnet-runtime = pkgs.dotnetCorePackages.runtime_8_0;
+            dotnet-runtime = pkgs.dotnetCorePackages.runtime_10_0;
             selfContainedBuild = true;
             runtimeDeps = pkgs.lib.optionals pkgs.stdenv.isLinux linuxDeps;
             # Fix URL-encoded '+' (%2B) in NuGet PCL framework folder names.
@@ -61,7 +61,7 @@ EOF
 
       devShells = forEachSupportedSystem ({ pkgs }:
         let
-          dotnet = with pkgs.dotnetCorePackages; combinePackages [ sdk_8_0 sdk_10_0 ];
+          dotnet = with pkgs.dotnetCorePackages; combinePackages [ sdk_10_0 ];
           linuxDeps = import ./nix/linux-deps.nix pkgs;
         in
         {

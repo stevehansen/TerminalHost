@@ -830,7 +830,7 @@ Add to `FileExplorerViewModel` and `FileExplorerView.xaml`:
 ┌─ File Explorer ──────────────────────────────────────────────────────────────┐
 │  [⟳]  [Explain project ✨]  [Generate .gitignore ✨]                         │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│ 💡 A .NET 8 desktop application (WPF + Avalonia) with a platform-agnostic   │
+│ 💡 A .NET 10 desktop application (WPF + Avalonia) with a platform-agnostic  │
 │    Core library. src/ holds the four projects; tests/ has unit and UI test  │
 │    suites. Configuration lives in %APPDATA%\TerminalHost\.                  │
 ├──────────────────────────────────────────────────────────────────────────────┤

@@ -9,7 +9,7 @@ title: Developer
 
 ## Technology stack
 
-- **WPF** on **.NET 8**
+- **WPF** on **.NET 10**
 - Terminal control: **EasyWindowsTerminalControl**
 - MVVM: **CommunityToolkit.Mvvm**
 - Single instance: **Mutex + named pipe IPC**
