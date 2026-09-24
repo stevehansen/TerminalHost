@@ -23,7 +23,7 @@ public sealed class WhisperVoiceCommandService : IVoiceCommandService, IDisposab
 
     private WhisperFactory? _factory;
     private WhisperProcessor? _processor;
-    private WaveInEvent? _waveIn;
+    private WaveIn? _waveIn;
     private MemoryStream? _audioBuffer;
     private BinaryWriter? _audioWriter;
 
@@ -98,7 +98,7 @@ public sealed class WhisperVoiceCommandService : IVoiceCommandService, IDisposab
             _hasSpeechStarted = false;
             _silenceSampleCount = 0;
 
-            _waveIn = new WaveInEvent
+            _waveIn = new WaveIn
             {
                 WaveFormat = new WaveFormat(SampleRate, BitsPerSample, Channels),
                 BufferMilliseconds = 100
