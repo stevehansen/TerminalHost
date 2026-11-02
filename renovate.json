@@ -3,6 +3,9 @@
   "extends": [
     "github>stevehansen/renovate-config"
   ],
+  "gitIgnoredAuthors": [
+    "41898282+github-actions[bot]@users.noreply.github.com"
+  ],
   "packageRules": [
     {
       "description": "global.json sdk.version is a floor (rollForward: latestFeature). The nix build uses the SDK nixpkgs pins, which lags; raising the floor breaks it.",

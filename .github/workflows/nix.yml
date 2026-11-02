@@ -19,8 +19,16 @@ jobs:
   deps-sync:
     name: deps.json in sync
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    env:
+      # Renovate can't run fetch-deps, so its PR branches get deps.json committed here.
+      RENOVATE_BRANCH: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'renovate/') && github.head_ref || '' }}
     steps:
     - uses: actions/checkout@v7
+      with:
+        ref: ${{ env.RENOVATE_BRANCH }}
     - uses: cachix/install-nix-action@v31
       with:
         extra_nix_config: |
@@ -43,6 +51,22 @@ jobs:
         name: deps-json
         path: deps.regenerated.json
         if-no-files-found: ignore
+
+    - name: Commit regenerated deps.json to Renovate branch
+      if: env.RENOVATE_BRANCH != ''
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        cp deps.regenerated.json deps.json
+        git diff --quiet -- deps.json && exit 0
+        # Renovate ignores this author (gitIgnoredAuthors), so it keeps rebasing and automerging the branch.
+        git config user.name 'github-actions[bot]'
+        git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+        git commit -m 'chore(deps): regenerate deps.json' -- deps.json
+        git push origin "HEAD:$RENOVATE_BRANCH"
+        # A GITHUB_TOKEN push starts no workflows, so dispatch the checks for the new commit.
+        gh workflow run nix.yml --ref "$RENOVATE_BRANCH"
+        gh workflow run dotnet.yml --ref "$RENOVATE_BRANCH"
 
     - name: Compare against committed deps.json
       run: |
