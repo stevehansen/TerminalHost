@@ -196,8 +196,8 @@
   },
   {
     "pname": "Markdig",
-    "version": "1.3.2",
-    "hash": "sha256-rlIUsV0QBtkdXHsWvJAREQr5XYNQWOGKMOgOKMJ48Zo="
+    "version": "1.5.1",
+    "hash": "sha256-9okSOVsDrku03tr8xwaX4eXKZshIC27gjIFX818h/sQ="
   },
   {
     "pname": "Markdig.SyntaxHighlighting",
@@ -226,13 +226,13 @@
   },
   {
     "pname": "Microsoft.Extensions.DependencyInjection",
-    "version": "10.0.12",
-    "hash": "sha256-uXnGMBkfbEi1SMrYZtgiSg7Q5ue+CrqH9FS1dZe2N3k="
+    "version": "10.0.14",
+    "hash": "sha256-EU4Bk0tjcAnVW009aOsGoi6xtv/75w2wlEJ2OP53LUk="
   },
   {
     "pname": "Microsoft.Extensions.DependencyInjection.Abstractions",
-    "version": "10.0.12",
-    "hash": "sha256-RmT6sKxLVriTUzP1nunngByKuW3nxXyztuuBkqWmHFU="
+    "version": "10.0.14",
+    "hash": "sha256-eaweSAmGYrBSKR5eCCnTf476Zae1RCfsEFQWmVlcrd8="
   },
   {
     "pname": "Microsoft.Extensions.FileProviders.Abstractions",
