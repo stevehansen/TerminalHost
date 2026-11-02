@@ -5,6 +5,16 @@
   ],
   "packageRules": [
     {
+      "description": "global.json sdk.version is a floor (rollForward: latestFeature). The nix build uses the SDK nixpkgs pins, which lags; raising the floor breaks it.",
+      "matchDatasources": [
+        "dotnet-version"
+      ],
+      "matchDepNames": [
+        "dotnet-sdk"
+      ],
+      "enabled": false
+    },
+    {
       "groupName": "LiveChartsCore",
       "matchPackageNames": [
         "/^LiveChartsCore\\./"
