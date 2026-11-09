@@ -196,8 +196,8 @@
   },
   {
     "pname": "Markdig",
-    "version": "1.5.1",
-    "hash": "sha256-9okSOVsDrku03tr8xwaX4eXKZshIC27gjIFX818h/sQ="
+    "version": "1.6.0",
+    "hash": "sha256-WkFmiIGyhqpTGtN7XJ1MiL9o2l3xzsnxKPT84I5RC7I="
   },
   {
     "pname": "Markdig.SyntaxHighlighting",
