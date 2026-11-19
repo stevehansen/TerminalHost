@@ -226,13 +226,13 @@
   },
   {
     "pname": "Microsoft.Extensions.DependencyInjection",
-    "version": "10.0.15",
-    "hash": "sha256-2rEiL9H3hUhp7QxzAvhUVsMzNwEVIjq4IksvXSv7Yhg="
+    "version": "11.0.0",
+    "hash": "sha256-TFlRVeUCPzcEZH2wYWZdvZNUxO3QmIP3dI7BnyRDY/U="
   },
   {
     "pname": "Microsoft.Extensions.DependencyInjection.Abstractions",
-    "version": "10.0.15",
-    "hash": "sha256-AZITXEyM9A9ih8ZOSC4NDA5e4ok64WJOefkcA057BuI="
+    "version": "11.0.0",
+    "hash": "sha256-K7m6RKsAPGR7Mj4simMrLi7VTXNTRjQOHqd4fq838nA="
   },
   {
     "pname": "Microsoft.Extensions.FileProviders.Abstractions",
