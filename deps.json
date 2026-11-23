@@ -176,18 +176,18 @@
   },
   {
     "pname": "LiveChartsCore",
-    "version": "2.0.5",
-    "hash": "sha256-BODUhQuxqwc6CDT5cq85DdsNGiKY82D+boTlO9EwxEY="
+    "version": "2.2.0",
+    "hash": "sha256-G1tPIkZWvQfK324SoBDgaAeDuqnfrGKcSr86Ntewm/E="
   },
   {
     "pname": "LiveChartsCore.SkiaSharpView",
-    "version": "2.0.5",
-    "hash": "sha256-/9SqosKvHs9eUWuCcIS/mhTbKR2OJ6AVeC/neYeZhXs="
+    "version": "2.2.0",
+    "hash": "sha256-8Uo7F7XDTUbicb4F3IAShcvpoexn2FqlvfmQ1kWa+s8="
   },
   {
     "pname": "LiveChartsCore.SkiaSharpView.Avalonia",
-    "version": "2.0.5",
-    "hash": "sha256-zGrwNg09b2jItFbfPZOO6bQlr0sJ6KCbt99rVguwKg8="
+    "version": "2.2.0",
+    "hash": "sha256-M29pdvq6TVUzFY5cYuoHPEH1439DkqDLBJ0NcyUas/A="
   },
   {
     "pname": "Markdig",
